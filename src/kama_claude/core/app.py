@@ -68,6 +68,9 @@ class CoreApp:
         cmd = EventSubscribeCommand.model_validate(params)
         writer = get_connection_writer()
 
+        # 学习断点 2：观察服务端解析后的 topics、scope、replay_from_run 和当前连接。
+        breakpoint()
+
         replayed_count = 0
         if cmd.replay_from_run is not None:
             replayed_count = await self._replay_events(
@@ -85,6 +88,9 @@ class CoreApp:
         topics: list[str],
     ) -> int:
         path = events_file(run_id)
+
+        # 学习断点 6：观察历史事件文件、run_id 和客户端订阅的 topics。
+        breakpoint()
         if not path.exists():
             return 0
 

@@ -34,6 +34,9 @@ class IpcEventBroadcaster:
     ) -> str:
         sub_id = f"sub-{uuid.uuid4().hex[:8]}"
         sub = _Subscription(sub_id=sub_id, writer=writer, topics=topics, scope=scope)
+
+        # 学习断点 3：观察一个 TCP writer 如何变成带 topic/scope 的订阅记录。
+        breakpoint()
         self._subscriptions.append(sub)
         return sub_id
 
@@ -46,6 +49,10 @@ class IpcEventBroadcaster:
         event_dict = event.model_dump()
         event_type: str = event_dict.get("type", "")
         run_id: str | None = event_dict.get("run_id")
+
+        # 学习断点 4：只在每次任务的首个代表性事件暂停，避免每个 token 都暂停。
+        if event_type == "run.started":
+            breakpoint()
 
         dead: list[asyncio.StreamWriter] = []
 

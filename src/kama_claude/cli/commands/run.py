@@ -87,13 +87,13 @@ async def _run_async(goal: str, config: KamaConfig) -> int:
     loop_task = asyncio.create_task(client.run_event_loop())
 
     try:
-        await client.send_command(
-            "event.subscribe",
-            {
-                "topics": ["run.*", "step.*", "tool.*", "llm.token", "llm.usage"],
-                "scope": "global",
-            },
-        )
+        subscribe_params = {
+            "topics": ["run.*", "step.*", "tool.*", "llm.token", "llm.usage"],
+            "scope": "global",
+        }
+        # 学习断点 1：观察客户端准备发送的事件订阅条件。
+        breakpoint()
+        await client.send_command("event.subscribe", subscribe_params)
         await client.send_command("agent.run", {"goal": goal})
     except IpcError as e:
         print(f"error: {e}", file=sys.stderr)

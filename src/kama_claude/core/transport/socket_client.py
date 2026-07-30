@@ -99,5 +99,9 @@ class SocketClient:
                         fut.set_result(msg.get("result") or {})
         elif msg.get("kind") == "event":
             event_data: dict[str, Any] = msg.get("event", {})
+
+            # 学习断点 5：观察服务端 JSON 事件如何在客户端恢复为 dict 并交给回调。
+            if event_data.get("type") == "run.started":
+                breakpoint()
             for handler in self._event_handlers:
                 await handler(event_data)
