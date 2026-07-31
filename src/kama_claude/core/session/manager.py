@@ -68,6 +68,9 @@ class SessionManager:
     # 处理用户消息，追加 thread 并启动一次 agent run
     async def send_message(self, sid: str, content: str, *, run_id: str | None = None) -> str:
         session = self._get_session(sid)
+
+        # S4 学习断点 1：对比第一轮 active 与第二轮 waiting_for_input 状态。
+        breakpoint()
         lock = self._locks[sid]
         if lock.locked():
             raise HandlerError(SESSION_BUSY, "session busy")

@@ -103,6 +103,9 @@ class AgentRunner:
             run_path = store.runs_dir(session.id) / run_id
             history = store.read_messages(session.id)
             notes = store.read_notes(session.id)
+
+            # S4 学习断点 2：对比两轮 history，第二轮应包含第一轮完整消息。
+            breakpoint()
         else:
             run_path = self._runs_dir / run_id
             history = [{"role": "user", "content": goal}]
@@ -122,6 +125,10 @@ class AgentRunner:
             prefill_messages=history,
             session_notes=notes,
         )
+
+        # S4 学习断点 3：确认 prefill_messages 已复制到 context.messages。
+        if session is not None:
+            breakpoint()
         prefill_len = len(history)
 
         async with EventWriter(run_path / "events.jsonl") as writer:
@@ -167,6 +174,8 @@ class AgentRunner:
             )
 
         if session is not None and store is not None:
+            # S4 学习断点 4：只把本轮新增消息切片并追加回 thread.jsonl。
+            breakpoint()
             store.append_messages(session.id, context.messages[prefill_len:], run_id=run_id)
 
         if cancelled:
