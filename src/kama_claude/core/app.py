@@ -99,12 +99,18 @@ class CoreApp:
         cmd = AgentRunCommand.model_validate(params)
         session = await self._sessions.create(mode="one_shot", title=cmd.goal[:40])
         run_id = new_run_id()
+        subscription_id: str | None = None
+        if cmd.subscribe_topics:
+            assert self._broadcaster is not None
+            subscription_id = self._broadcaster.subscribe(
+                get_connection_writer(), cmd.subscribe_topics, scope=f"run:{run_id}"
+            )
         run_task = asyncio.create_task(
             self._sessions.send_message(session.id, cmd.goal, run_id=run_id)
         )
         self._running_runs.add(run_task)
         run_task.add_done_callback(self._running_runs.discard)
-        return AgentRunResult(run_id=run_id)
+        return AgentRunResult(run_id=run_id, subscription_id=subscription_id)
 
     # 创建 chat 或 one_shot session，并返回 session_id
     async def _session_create_handler(self, params: dict[str, Any]) -> SessionCreateResult:

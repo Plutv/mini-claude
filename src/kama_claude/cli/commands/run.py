@@ -88,13 +88,14 @@ async def _run_async(goal: str, config: KamaConfig) -> int:
 
     try:
         await client.send_command(
-            "event.subscribe",
+            "agent.run",
             {
-                "topics": ["run.*", "step.*", "tool.*", "llm.token", "llm.usage"],
-                "scope": "global",
+                "goal": goal,
+                "subscribe_topics": [
+                    "run.*", "step.*", "tool.*", "llm.token", "llm.usage"
+                ],
             },
         )
-        await client.send_command("agent.run", {"goal": goal})
     except IpcError as e:
         print(f"error: {e}", file=sys.stderr)
         loop_task.cancel()

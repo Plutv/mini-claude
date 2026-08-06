@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Discriminator
+from pydantic import BaseModel, Discriminator, Field
 
 from kama_claude.core.session.model import SessionMode, SessionStatus
 
@@ -21,10 +21,12 @@ class PongResult(BaseModel):
 class AgentRunCommand(BaseModel):
     type: Literal["agent.run"] = "agent.run"
     goal: str
+    subscribe_topics: list[str] = Field(default_factory=list)
 
 
 class AgentRunResult(BaseModel):
     run_id: str
+    subscription_id: str | None = None
 
 
 class EventSubscribeCommand(BaseModel):

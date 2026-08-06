@@ -74,6 +74,37 @@ async def test_event_writer_subscribe_via_bus(tmp_path: Path) -> None:
     assert json.loads(lines[0])["run_id"] == "r1"
 
 
+async def test_run_scoped_writers_do_not_mix_concurrent_run_events(tmp_path: Path) -> None:
+    bus = EventBus()
+    path1 = tmp_path / "r1" / "events.jsonl"
+    path2 = tmp_path / "r2" / "events.jsonl"
+
+    async with (
+        EventWriter(path1, run_id="r1") as writer1,
+        EventWriter(path2, run_id="r2") as writer2,
+    ):
+        writer1.subscribe(bus)
+        writer2.subscribe(bus)
+        await bus.publish(RunStartedEvent(run_id="r1", goal="one", ts="t1"))
+        await bus.publish(RunStartedEvent(run_id="r2", goal="two", ts="t2"))
+
+    events1 = [json.loads(line) for line in path1.read_text().splitlines()]
+    events2 = [json.loads(line) for line in path2.read_text().splitlines()]
+    assert [event["run_id"] for event in events1] == ["r1"]
+    assert [event["run_id"] for event in events2] == ["r2"]
+
+
+async def test_writer_unsubscribes_from_bus_when_context_closes(tmp_path: Path) -> None:
+    bus = EventBus()
+    path = tmp_path / "events.jsonl"
+    async with EventWriter(path, run_id="r1") as writer:
+        writer.subscribe(bus)
+        await bus.publish(RunStartedEvent(run_id="r1", goal="first", ts="t1"))
+
+    await bus.publish(RunStartedEvent(run_id="r1", goal="late", ts="t2"))
+    assert len(path.read_text().splitlines()) == 1
+
+
 # 功能：验证文件未通过 async with 打开时 handle 静默返回、不抛异常
 # 设计：直接实例化 writer（跳过 async with），调用 handle 后不断言文件存在，以"不引发异常"为唯一判据；对应 EventWriter 的防御性设计
 async def test_event_writer_handle_when_not_open_is_noop(tmp_path: Path) -> None:
