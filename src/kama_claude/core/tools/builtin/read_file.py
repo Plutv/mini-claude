@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
 from kama_claude.core.tools.base import BaseTool, ToolResult
+from kama_claude.core.tools.file_versions import FileVersionTracker
 
 _MAX_BYTES = 512 * 1024  # 512 KB
 
@@ -15,6 +17,7 @@ class ReadFileParams(BaseModel):
 
 
 class ReadFileTool(BaseTool):
+    parallel_safe = True
     params_model = ReadFileParams
     name = "read_file"
     description = (
@@ -33,6 +36,9 @@ class ReadFileTool(BaseTool):
         "required": ["path"],
     }
 
+    def __init__(self, version_tracker: FileVersionTracker | None = None) -> None:
+        self._version_tracker = version_tracker
+
     # 读取文件内容；超 512KB 截断；禁止 .. 路径遍历
     async def invoke(self, params: dict[str, object]) -> ToolResult:
         path_str = ReadFileParams.model_validate(params).path
@@ -41,7 +47,9 @@ class ReadFileTool(BaseTool):
             raise PermissionError(f"path traversal not allowed: {path_str}")
 
         path = Path(path_str)
-        raw = path.read_bytes()  # raises FileNotFoundError if absent
+        raw = await asyncio.to_thread(path.read_bytes)  # raises FileNotFoundError if absent
+        if self._version_tracker is not None:
+            self._version_tracker.record(path, raw)
         truncated = len(raw) > _MAX_BYTES
         text = raw[:_MAX_BYTES].decode("utf-8", errors="replace")
         if truncated:

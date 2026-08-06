@@ -11,7 +11,7 @@ from pydantic import BaseModel
 class ToolResult:
     content: str
     is_error: bool = False
-    # "runtime_error" | "timeout" | "schema_error" | "permission_denied"
+    # "runtime_error" | "timeout" | "schema_error" | "permission_denied" | "conflict"
     error_type: str | None = None
 
 
@@ -20,6 +20,8 @@ class BaseTool(ABC):
     description: str
     input_schema: dict[str, object]
     params_model: ClassVar[type[BaseModel] | None] = None
+    # Only tools without side effects may opt in to concurrent execution.
+    parallel_safe: ClassVar[bool] = False
 
     # 执行工具调用，返回结果或错误
     @abstractmethod

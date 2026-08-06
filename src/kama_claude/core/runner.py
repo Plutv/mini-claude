@@ -24,6 +24,7 @@ from kama_claude.core.session.store import SessionStore
 from kama_claude.core.subagent.registry import BackgroundTaskRegistry
 from kama_claude.core.subagent.tool import AgentResultTool, SpawnAgentTool
 from kama_claude.core.task.manager import TaskManager
+from kama_claude.core.tools.artifacts import ToolArtifactStore
 from kama_claude.core.tools.builtin import (
     BashTool,
     ListDirTool,
@@ -35,6 +36,7 @@ from kama_claude.core.tools.builtin import (
     TaskUpdateTool,
     WriteFileTool,
 )
+from kama_claude.core.tools.file_versions import FileVersionTracker
 from kama_claude.core.tools.registry import ToolRegistry
 from kama_claude.core.trace.provider import TracingProvider
 from kama_claude.core.trace.writer import TraceWriter
@@ -81,6 +83,7 @@ class AgentRunner:
         self,
         task_manager: TaskManager,
         *,
+        file_versions: FileVersionTracker | None = None,
         session: Session | None = None,
         store: SessionStore | None = None,
         run_id: str | None = None,
@@ -96,7 +99,12 @@ class AgentRunner:
             return allowed is None or name in allowed
 
         registry = ToolRegistry()
-        for t in [ReadFileTool(), BashTool(), WriteFileTool(), ListDirTool()]:
+        for t in [
+            ReadFileTool(file_versions),
+            BashTool(),
+            WriteFileTool(file_versions),
+            ListDirTool(),
+        ]:
             if _ok(t.name):
                 registry.register(t)
         for t in [
@@ -165,6 +173,8 @@ class AgentRunner:
         project_ctx = load_context_file(Path(".kama/context.md"))
 
         task_manager = TaskManager(run_path / ".tasks")
+        file_versions = FileVersionTracker()
+        artifact_store = ToolArtifactStore(run_path / "artifacts")
 
         bus = self._bus if self._bus is not None else EventBus()
         for h in self._extra_handlers:
@@ -182,7 +192,7 @@ class AgentRunner:
         )
         prefill_len = len(history)
 
-        async with EventWriter(run_path / "events.jsonl") as writer:
+        async with EventWriter(run_path / "events.jsonl", run_id=run_id) as writer:
             writer.subscribe(bus)
             await bus.publish(RunStartedEvent(run_id=run_id, goal=goal, ts=_now()))
 
@@ -205,6 +215,7 @@ class AgentRunner:
                 )
                 registry = self._build_registry(
                     task_manager,
+                    file_versions=file_versions,
                     session=session,
                     store=store,
                     run_id=run_id,
@@ -226,6 +237,7 @@ class AgentRunner:
                     compactor=compactor,
                     compact_threshold=self._config.compaction.auto_threshold,
                     session_id=session_id_str,
+                    artifact_store=artifact_store,
                 )
                 await loop.run(context)
             except asyncio.CancelledError:

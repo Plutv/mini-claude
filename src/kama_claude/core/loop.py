@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -8,13 +9,15 @@ from kama_claude.core.bus.events import StepFinishedEvent, StepStartedEvent
 from kama_claude.core.context import ExecutionContext
 from kama_claude.core.events.bus import EventBus
 from kama_claude.core.llm.base import LLMProvider
+from kama_claude.core.llm.types import ToolCallBlock
+from kama_claude.core.tools.base import ToolResult
 from kama_claude.core.tools.invocation import invoke_tool
 from kama_claude.core.tools.registry import ToolRegistry
-import logging
 
 if TYPE_CHECKING:
     from kama_claude.core.compact.compactor import Compactor
     from kama_claude.core.permissions.manager import PermissionManager
+    from kama_claude.core.tools.artifacts import ToolArtifactStore
 
 
 log = logging.getLogger(__name__)
@@ -24,7 +27,7 @@ def _now() -> str:
 
 
 class AgentLoop:
-    # 初始化循环所需依赖：LLM provider、工具注册表、事件总线，以及可选的权限管理器、压缩器和 session ID
+    # 初始化循环依赖：provider、工具注册表、事件总线，以及可选权限、压缩和 session
     def __init__(
         self,
         provider: LLMProvider,
@@ -35,6 +38,7 @@ class AgentLoop:
         compactor: Compactor | None = None,
         compact_threshold: float = 0.80,
         session_id: str = "",
+        artifact_store: ToolArtifactStore | None = None,
     ) -> None:
         self._provider = provider
         self._registry = registry
@@ -43,6 +47,52 @@ class AgentLoop:
         self._compactor = compactor
         self._compact_threshold = compact_threshold
         self._session_id = session_id
+        self._artifact_store = artifact_store
+
+    async def _invoke_one(
+        self, tool_call: ToolCallBlock, run_id: str
+    ) -> tuple[ToolCallBlock, ToolResult]:
+        result = await invoke_tool(
+            self._registry,
+            tool_call,
+            self._bus,
+            run_id,
+            permission_manager=self._permission_manager,
+            session_id=self._session_id,
+            artifact_store=self._artifact_store,
+        )
+        return tool_call, result
+
+    async def _invoke_requested_tools(
+        self, tool_calls: list[ToolCallBlock], run_id: str
+    ) -> list[tuple[ToolCallBlock, ToolResult]]:
+        """Run consecutive read-only calls concurrently and preserve model order."""
+        ordered: list[tuple[ToolCallBlock, ToolResult]] = []
+        index = 0
+        while index < len(tool_calls):
+            tool = self._registry.get(tool_calls[index].name)
+            if tool is None or not tool.parallel_safe:
+                ordered.append(await self._invoke_one(tool_calls[index], run_id))
+                index += 1
+                continue
+
+            end = index
+            while end < len(tool_calls):
+                candidate = self._registry.get(tool_calls[end].name)
+                if candidate is None or not candidate.parallel_safe:
+                    break
+                end += 1
+            batch = tool_calls[index:end]
+            if len(batch) == 1:
+                ordered.append(await self._invoke_one(batch[0], run_id))
+            else:
+                ordered.extend(
+                    await asyncio.gather(
+                        *(self._invoke_one(call, run_id) for call in batch)
+                    )
+                )
+            index = end
+        return ordered
 
     # 驱动 plan→act→observe 循环直到上下文终止；CancelledError 向上传播
     async def run(self, context: ExecutionContext) -> None:
@@ -90,12 +140,10 @@ class AgentLoop:
 
             # [act] execute each requested tool; errors become tool results so loop continues
             if response.stop_reason == "tool_use":
-                for tc in response.tool_calls:
-                    result = await invoke_tool(
-                        self._registry, tc, self._bus, context.run_id,
-                        permission_manager=self._permission_manager,
-                        session_id=self._session_id,
-                    )
+                invoked = await self._invoke_requested_tools(
+                    response.tool_calls, context.run_id
+                )
+                for tc, result in invoked:
                     context.add_tool_result(tc.id, result.content, is_error=result.is_error)
             elif response.stop_reason == "max_tokens" and response.tool_calls:
                 # Output token limit hit mid-tool-call; input is incomplete.
@@ -103,7 +151,8 @@ class AgentLoop:
                 for tc in response.tool_calls:
                     context.add_tool_result(
                         tc.id,
-                        "Error: output token limit reached before this tool call could be completed. "
+                        "Error: output token limit reached before this tool call "
+                        "could be completed. "
                         "Please break the task into smaller steps and try again.",
                         is_error=True,
                     )

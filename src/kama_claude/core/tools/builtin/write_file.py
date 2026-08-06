@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
 from kama_claude.core.tools.base import BaseTool, ToolResult
+from kama_claude.core.tools.file_versions import FileVersionTracker
 
 _MAX_BYTES = 1 * 1024 * 1024  # 1 MB
 
@@ -39,6 +41,9 @@ class WriteFileTool(BaseTool):
         "required": ["path", "content"],
     }
 
+    def __init__(self, version_tracker: FileVersionTracker | None = None) -> None:
+        self._version_tracker = version_tracker
+
     # 写入文件内容；超 1MB 拒绝；禁止 .. 路径遍历；自动创建父目录
     async def invoke(self, params: dict[str, object]) -> ToolResult:
         p = WriteFileParams.model_validate(params)
@@ -57,7 +62,14 @@ class WriteFileTool(BaseTool):
             )
 
         path = Path(path_str)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        if self._version_tracker is not None:
+            conflict = await asyncio.to_thread(self._version_tracker.validate_write, path)
+            if conflict is not None:
+                return ToolResult(content=conflict, is_error=True, error_type="conflict")
+
+        await asyncio.to_thread(path.parent.mkdir, parents=True, exist_ok=True)
+        await asyncio.to_thread(path.write_text, content, encoding="utf-8")
+        if self._version_tracker is not None:
+            self._version_tracker.record(path, encoded)
 
         return ToolResult(content=f"wrote {len(encoded)} bytes to {path_str}")

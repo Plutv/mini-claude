@@ -23,6 +23,7 @@ from kama_claude.core.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
     from kama_claude.core.permissions.manager import PermissionManager
+    from kama_claude.core.tools.artifacts import ToolArtifactStore
 
 _DEFAULT_TIMEOUT: float = 120.0
 _MAX_RETRIES: int = 2
@@ -70,6 +71,7 @@ async def invoke_tool(
     *,
     permission_manager: PermissionManager | None = None,
     session_id: str = "",
+    artifact_store: ToolArtifactStore | None = None,
 ) -> ToolResult:
     t0 = time.monotonic()
 
@@ -155,6 +157,8 @@ async def invoke_tool(
                 error_class = result.error_type or "runtime_error"
                 error_message = result.content
             else:
+                if artifact_store is not None:
+                    result = await artifact_store.externalize(tool_call, result)
                 await bus.publish(
                     ToolCallFinishedEvent(
                         run_id=run_id,
