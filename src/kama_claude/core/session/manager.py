@@ -123,9 +123,9 @@ class SessionManager:
                 skill_name = parts[0]
                 arguments = parts[1] if len(parts) > 1 else ""
                 skill = self._skill_loader.resolve(skill_name)
-                if skill is not None:
+                if skill is not None and skill.user_invocable:
                     goal = self._skill_loader.render_prompt(skill, arguments)
-                    system_prompt_override = skill.system_prompt_template
+                    system_prompt_override = goal
                     tool_whitelist = skill.allowed_tools or None
                     await self._bus.publish(
                         SkillInvokedEvent(

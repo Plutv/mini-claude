@@ -23,6 +23,7 @@ from kama_claude.core.permissions.manager import PermissionManager
 from kama_claude.core.runs import RUNS_DIR, new_run_id
 from kama_claude.core.session.model import Session
 from kama_claude.core.session.store import SessionStore
+from kama_claude.core.skills import SkillLoader, SkillTool
 from kama_claude.core.subagent.registry import BackgroundTaskRegistry
 from kama_claude.core.subagent.tool import AgentResultTool, SpawnAgentTool
 from kama_claude.core.task.manager import TaskManager
@@ -83,6 +84,7 @@ class AgentRunner:
         self._permission_manager = permission_manager
         self._mcp_manager = mcp_manager
         self._memory_store = memory_store
+        self._skill_loader = SkillLoader()
         # 跨 run 共享的后台 subagent 任务注册表
         self._task_registry = BackgroundTaskRegistry()
 
@@ -136,6 +138,8 @@ class AgentRunner:
             if _ok(note_tool.name):
                 registry.register(note_tool)
         if provider is not None and bus is not None and run_id is not None:
+            if _ok("skill"):
+                registry.register(SkillTool(self._skill_loader, bus, run_id))
             runs_dir = child_runs_dir or self._runs_dir
             if _ok("spawn_agent"):
                 registry.register(
@@ -225,6 +229,7 @@ class AgentRunner:
             global_context=global_ctx,
             project_context=project_ctx,
             recalled_memories=recalled_memories,
+            skill_catalog=self._skill_loader.catalog_prompt(),
             system_prompt_override=system_prompt_override,
         )
         async with EventWriter(run_path / "events.jsonl", run_id=run_id) as writer:
