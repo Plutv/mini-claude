@@ -85,3 +85,30 @@ def test_priority_chain_full(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     cfg = get_config()
 
     assert cfg.port == 8000
+
+
+def test_memory_recall_settings_load_from_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = tmp_path / "memory.toml"
+    config_path.write_text(
+        """
+[memory]
+enabled = true
+database = "/tmp/kama-memory.sqlite3"
+recall_top_k = 4
+recall_min_score = 0.25
+recall_max_chars = 2048
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("KAMA_CONFIG", str(config_path))
+
+    config = get_config()
+
+    assert config.memory.enabled is True
+    assert config.memory.database == "/tmp/kama-memory.sqlite3"
+    assert config.memory.recall_top_k == 4
+    assert config.memory.recall_min_score == 0.25
+    assert config.memory.recall_max_chars == 2048

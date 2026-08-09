@@ -11,6 +11,7 @@ from kama_claude.core.compact.budget import tool_pairs_balanced
 from kama_claude.core.config import KamaConfig
 from kama_claude.core.events.bus import EventBus
 from kama_claude.core.llm.types import LlmResponse, ToolCallBlock, UsageStats
+from kama_claude.core.memory.store import MemoryStore
 from kama_claude.core.runner import AgentRunner
 
 # --- mock provider -----------------------------------------------------------
@@ -183,6 +184,29 @@ async def test_extra_handlers_receive_events(tmp_path: Path) -> None:
     )
     await runner.run("goal")
     assert len(secondary) > 0
+
+
+async def test_runner_selectively_injects_relevant_long_term_memory(tmp_path: Path) -> None:
+    memory_store = MemoryStore(tmp_path / "memory.sqlite3")
+    memory_store.save(
+        scope="global",
+        content="Use ruff when formatting Python code",
+        importance=0.9,
+    )
+    memory_store.save(scope="global", content="PostgreSQL runs on port 5432", importance=0.9)
+    provider = _CapturingProvider(LlmResponse(stop_reason="end_turn", text="done"))
+    runner = AgentRunner(
+        _config(),
+        provider=provider,
+        runs_dir=tmp_path / "runs",
+        memory_store=memory_store,
+    )
+
+    await runner.run("format this Python file")
+
+    assert provider.system is not None
+    assert "Use ruff when formatting Python code" in provider.system
+    assert "PostgreSQL runs on port 5432" not in provider.system
 
 
 # 功能：验证 config.agent.max_steps 被正确传递给 AgentLoop，控制 LLM 调用次数上限

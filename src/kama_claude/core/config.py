@@ -57,6 +57,15 @@ class CompactionConfig:
 
 
 @dataclass
+class MemoryConfig:
+    enabled: bool = True
+    database: str = "~/.kama/memory.sqlite3"
+    recall_top_k: int = 6
+    recall_min_score: float = 0.15
+    recall_max_chars: int = 6_000
+
+
+@dataclass
 class McpServerConfig:
     name: str
     transport: str = "stdio"       # "stdio" | "tcp"
@@ -82,6 +91,7 @@ class KamaConfig:
     trace: TraceConfig = field(default_factory=TraceConfig)
     permission: PermissionConfig = field(default_factory=PermissionConfig)
     compaction: CompactionConfig = field(default_factory=CompactionConfig)
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
     mcp: McpConfig = field(default_factory=McpConfig)
 
 
@@ -117,7 +127,17 @@ def get_config() -> KamaConfig:
 
 # 将已解析的 TOML 根表写入 config；未知小节或类型错误时退出进程
 def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
-    unknown = set(data.keys()) - {"core", "logging", "agent", "llm", "trace", "permission", "compaction", "mcp"}
+    unknown = set(data.keys()) - {
+        "core",
+        "logging",
+        "agent",
+        "llm",
+        "trace",
+        "permission",
+        "compaction",
+        "memory",
+        "mcp",
+    }
     if unknown:
         raise SystemExit(f"Unknown top-level config keys: {', '.join(sorted(unknown))}")
 
@@ -242,6 +262,44 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
             if not isinstance(val, int) or val <= 0:
                 raise SystemExit("Config error: compaction.tool_result_keep must be a positive integer")
             config.compaction.tool_result_keep = val
+
+    if "memory" in data:
+        memory = data["memory"]
+        if not isinstance(memory, dict):
+            raise SystemExit("Config error: [memory] must be a table")
+        allowed = {
+            "enabled",
+            "database",
+            "recall_top_k",
+            "recall_min_score",
+            "recall_max_chars",
+        }
+        unknown_memory = set(memory) - allowed
+        if unknown_memory:
+            raise SystemExit(f"Unknown [memory] keys: {', '.join(sorted(unknown_memory))}")
+        if "enabled" in memory:
+            if not isinstance(memory["enabled"], bool):
+                raise SystemExit("Config error: memory.enabled must be a boolean")
+            config.memory.enabled = memory["enabled"]
+        if "database" in memory:
+            if not isinstance(memory["database"], str):
+                raise SystemExit("Config error: memory.database must be a string")
+            config.memory.database = memory["database"]
+        if "recall_top_k" in memory:
+            value = memory["recall_top_k"]
+            if not isinstance(value, int) or value <= 0:
+                raise SystemExit("Config error: memory.recall_top_k must be positive")
+            config.memory.recall_top_k = value
+        if "recall_min_score" in memory:
+            value = memory["recall_min_score"]
+            if not isinstance(value, (int, float)) or not 0 <= value <= 1:
+                raise SystemExit("Config error: memory.recall_min_score must be between 0 and 1")
+            config.memory.recall_min_score = float(value)
+        if "recall_max_chars" in memory:
+            value = memory["recall_max_chars"]
+            if not isinstance(value, int) or value <= 0:
+                raise SystemExit("Config error: memory.recall_max_chars must be positive")
+            config.memory.recall_max_chars = value
 
     if "mcp" in data:
         mcp = data["mcp"]

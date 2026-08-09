@@ -18,7 +18,7 @@ from kama_claude.core.llm.base import LLMProvider
 from kama_claude.core.llm.provider import AnthropicProvider
 from kama_claude.core.loop import AgentLoop
 from kama_claude.core.mcp.server import McpServerManager
-from kama_claude.core.memory.loader import load_context_file
+from kama_claude.core.memory import MemoryStore, load_context_file, project_memory_scope
 from kama_claude.core.permissions.manager import PermissionManager
 from kama_claude.core.runs import RUNS_DIR, new_run_id
 from kama_claude.core.session.model import Session
@@ -72,6 +72,7 @@ class AgentRunner:
         trace: TraceWriter | None = None,
         permission_manager: PermissionManager | None = None,
         mcp_manager: McpServerManager | None = None,
+        memory_store: MemoryStore | None = None,
     ) -> None:
         self._config = config
         self._bus = bus
@@ -81,6 +82,7 @@ class AgentRunner:
         self._trace = trace
         self._permission_manager = permission_manager
         self._mcp_manager = mcp_manager
+        self._memory_store = memory_store
         # 跨 run 共享的后台 subagent 任务注册表
         self._task_registry = BackgroundTaskRegistry()
 
@@ -98,6 +100,8 @@ class AgentRunner:
         child_runs_dir: Path | None = None,
         session_id: str = "",
         tool_whitelist: list[str] | None = None,
+        memory_store: MemoryStore | None = None,
+        project_scope: str = "",
     ) -> ToolRegistry:
         allowed: set[str] | None = set(tool_whitelist) if tool_whitelist else None
 
@@ -122,7 +126,13 @@ class AgentRunner:
             if _ok(t.name):
                 registry.register(t)
         if session is not None and store is not None and run_id is not None:
-            note_tool = NoteSaveTool(store, session.id, run_id)
+            note_tool = NoteSaveTool(
+                store,
+                session.id,
+                run_id,
+                memory_store=memory_store,
+                project_scope=project_scope,
+            )
             if _ok(note_tool.name):
                 registry.register(note_tool)
         if provider is not None and bus is not None and run_id is not None:
@@ -177,6 +187,22 @@ class AgentRunner:
 
         global_ctx = load_context_file(Path("~/.kama/context.md").expanduser())
         project_ctx = load_context_file(Path(".kama/context.md"))
+        project_scope = project_memory_scope(Path.cwd())
+        memory_store = self._memory_store
+        recalled_memories = ""
+        if self._config.memory.enabled and memory_store is not None:
+            scopes = ["global", project_scope]
+            if session is not None:
+                scopes.insert(0, f"session:{session.id}")
+            recalled = await asyncio.to_thread(
+                memory_store.recall,
+                goal,
+                scopes=scopes,
+                limit=self._config.memory.recall_top_k,
+                min_score=self._config.memory.recall_min_score,
+                max_chars=self._config.memory.recall_max_chars,
+            )
+            recalled_memories = memory_store.render(recalled)
 
         task_manager = TaskManager(run_path / ".tasks")
         file_versions = FileVersionTracker()
@@ -198,6 +224,7 @@ class AgentRunner:
             session_notes=notes,
             global_context=global_ctx,
             project_context=project_ctx,
+            recalled_memories=recalled_memories,
             system_prompt_override=system_prompt_override,
         )
         async with EventWriter(run_path / "events.jsonl", run_id=run_id) as writer:
@@ -232,6 +259,8 @@ class AgentRunner:
                     child_runs_dir=child_runs_dir,
                     session_id=session_id_str,
                     tool_whitelist=tool_whitelist,
+                    memory_store=memory_store,
+                    project_scope=project_scope,
                 )
                 session_dir = (
                     store.session_dir(session.id)

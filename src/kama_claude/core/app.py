@@ -44,6 +44,7 @@ from kama_claude.core.events.bus import EventBus
 from kama_claude.core.llm.provider import AnthropicProvider
 from kama_claude.core.logging_setup import setup_logging
 from kama_claude.core.mcp.server import McpServerManager
+from kama_claude.core.memory import MemoryStore
 from kama_claude.core.permissions.manager import PermissionManager
 from kama_claude.core.permissions.storage import load_policy_file
 from kama_claude.core.runner import AgentRunner
@@ -72,6 +73,7 @@ class CoreApp:
         self._sessions: SessionManager | None = None
         self._permission_manager: PermissionManager | None = None
         self._mcp_manager: McpServerManager | None = None
+        self._memory_store: MemoryStore | None = None
 
     # 处理 core.ping 请求，返回服务版本、运行时长和接收时间
     async def _ping_handler(self, params: dict[str, Any]) -> PongResult:
@@ -271,6 +273,8 @@ class CoreApp:
         store = SessionStore(sessions_root)
         assert self._config is not None
         compact_provider = AnthropicProvider(self._config.llm.default_model)
+        if self._config.memory.enabled:
+            self._memory_store = MemoryStore(Path(self._config.memory.database))
 
         self._mcp_manager = McpServerManager()
         if self._config.mcp.servers:
@@ -285,6 +289,7 @@ class CoreApp:
                 trace=self._trace,
                 permission_manager=self._permission_manager,
                 mcp_manager=self._mcp_manager,
+                memory_store=self._memory_store,
             ),
             bus=self._bus,
             provider=compact_provider,
