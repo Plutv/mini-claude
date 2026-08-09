@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import shutil
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -103,9 +106,7 @@ class SessionStore:
                 continue
             messages.append({"role": role, "content": row.get("content", "")})
 
-        messages = self._trim_orphan_tool_use(messages)
-        from kama_claude.core.compact.budget import truncate_tool_results
-        return truncate_tool_results(messages)
+        return self._trim_orphan_tool_use(messages)
 
     # 裁掉尾部未配对 tool_use 以及其后的消息，避免 Anthropic messages.invalid
     def _trim_orphan_tool_use(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -129,17 +130,44 @@ class SessionStore:
             return messages[:last_balanced]
         return messages
 
+    def write_messages_atomic(
+        self,
+        sid: str,
+        messages: list[dict[str, Any]],
+    ) -> None:
+        """Atomically replace a session thread with a balanced snapshot."""
+        from kama_claude.core.compact.budget import tool_pairs_balanced
+
+        if not tool_pairs_balanced(messages):
+            raise ValueError("refusing to persist unbalanced tool history")
+
+        directory = self.session_dir(sid)
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / "thread.jsonl"
+        temp = directory / f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        try:
+            with temp.open("w", encoding="utf-8") as handle:
+                for message in messages:
+                    row: dict[str, Any] = {
+                        "ts": _now(),
+                        "role": message["role"],
+                        "content": message["content"],
+                    }
+                    handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp, path)
+        finally:
+            temp.unlink(missing_ok=True)
+
     # 将压缩后的消息对覆盖写入 thread.jsonl，原文件备份为 thread_<ts>.jsonl.bak
     def write_compacted(self, sid: str, messages: list[dict[str, Any]]) -> None:
         path = self.session_dir(sid) / "thread.jsonl"
         ts_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         bak = self.session_dir(sid) / f"thread_{ts_str}.jsonl.bak"
         if path.exists():
-            path.rename(bak)
-        with path.open("w", encoding="utf-8") as f:
-            for msg in messages:
-                row: dict[str, Any] = {"ts": _now(), "role": msg["role"], "content": msg["content"]}
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            shutil.copy2(path, bak)
+        self.write_messages_atomic(sid, messages)
 
     # 读取 notes.md 全文，文件不存在时返回空字符串
     def read_notes(self, sid: str) -> str:

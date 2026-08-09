@@ -5,9 +5,11 @@ import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from kama_claude.core.bus.events import RunFinishedEvent, RunStartedEvent
 from kama_claude.core.compact.compactor import Compactor
+from kama_claude.core.compact.engine import ContextEngine, ContextPolicy
 from kama_claude.core.config import KamaConfig
 from kama_claude.core.context import ExecutionContext
 from kama_claude.core.events.bus import EventBus, EventHandler
@@ -51,6 +53,10 @@ class RunOutcome:
     status: str
     result: str
     reason: str | None
+
+
+class CheckpointError(RuntimeError):
+    """A balanced context snapshot could not be made durable."""
 
 
 class AgentRunner:
@@ -174,7 +180,11 @@ class AgentRunner:
 
         task_manager = TaskManager(run_path / ".tasks")
         file_versions = FileVersionTracker()
-        artifact_store = ToolArtifactStore(run_path / "artifacts")
+        artifact_store = ToolArtifactStore(
+            run_path / "artifacts",
+            threshold=self._config.compaction.tool_result_limit,
+            keep_chars=self._config.compaction.tool_result_keep,
+        )
 
         bus = self._bus if self._bus is not None else EventBus()
         for h in self._extra_handlers:
@@ -190,8 +200,6 @@ class AgentRunner:
             project_context=project_ctx,
             system_prompt_override=system_prompt_override,
         )
-        prefill_len = len(history)
-
         async with EventWriter(run_path / "events.jsonl", run_id=run_id) as writer:
             writer.subscribe(bus)
             await bus.publish(RunStartedEvent(run_id=run_id, goal=goal, ts=_now()))
@@ -231,11 +239,34 @@ class AgentRunner:
                     else run_path
                 )
                 compactor = Compactor(bus, session_dir, session_id_str)
+                context_engine = ContextEngine(
+                    compactor,
+                    ContextPolicy(
+                        tool_result_limit=self._config.compaction.tool_result_limit,
+                        tool_result_keep=self._config.compaction.tool_result_keep,
+                        full_compact_threshold=self._config.compaction.auto_threshold,
+                    ),
+                )
+
+                checkpoint = None
+                if session is not None and store is not None:
+                    async def _checkpoint(messages: list[dict[str, Any]]) -> None:
+                        try:
+                            await asyncio.to_thread(
+                                store.write_messages_atomic,
+                                session.id,
+                                messages,
+                            )
+                        except Exception as exc:
+                            raise CheckpointError(str(exc)) from exc
+
+                    checkpoint = _checkpoint
+
                 loop = AgentLoop(
                     provider, registry, bus,
                     permission_manager=self._permission_manager,
-                    compactor=compactor,
-                    compact_threshold=self._config.compaction.auto_threshold,
+                    context_engine=context_engine,
+                    checkpoint=checkpoint,
                     session_id=session_id_str,
                     artifact_store=artifact_store,
                 )
@@ -244,6 +275,12 @@ class AgentRunner:
                 cancelled = True
                 if not context.is_done():
                     context.mark_failed("cancelled")
+            except CheckpointError:
+                logging.getLogger(__name__).exception(
+                    "session checkpoint failed run_id=%s step=%d", run_id, context.step
+                )
+                if not context.is_done():
+                    context.mark_failed("persistence_error")
             except Exception:
                 logging.getLogger(__name__).exception(
                     "agent run failed run_id=%s step=%d", run_id, context.step
@@ -260,9 +297,6 @@ class AgentRunner:
                     ts=_now(),
                 )
             )
-
-        if session is not None and store is not None:
-            store.append_messages(session.id, context.messages[prefill_len:], run_id=run_id)
 
         if cancelled:
             raise asyncio.CancelledError()

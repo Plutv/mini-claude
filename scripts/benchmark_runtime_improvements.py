@@ -71,6 +71,8 @@ async def main() -> None:
                 "artifact_context_reduction_pct": round(
                     (1 - reference_bytes / original_bytes) * 100, 2
                 ),
+                "artifact_estimated_tokens_before": original_bytes // 4,
+                "artifact_estimated_tokens_after": reference_bytes // 4,
             },
             indent=2,
         )

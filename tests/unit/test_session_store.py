@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from kama_claude.core.session.model import Session
 from kama_claude.core.session.store import SessionStore
 
@@ -89,3 +91,61 @@ def test_notes_read_and_append(tmp_path: Path) -> None:
     notes = store.read_notes("sess-1")
     assert "Python 3.12" in notes
     assert "run-1" in notes
+
+
+def test_atomic_snapshot_replaces_thread_and_remains_readable(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    store.append_message("sess-1", "user", "old")
+    snapshot = [
+        {"role": "user", "content": "summary"},
+        {"role": "assistant", "content": "ack"},
+        {"role": "user", "content": "uncompressed tail"},
+    ]
+
+    store.write_messages_atomic("sess-1", snapshot)
+
+    assert store.read_messages("sess-1") == snapshot
+    assert not list(store.session_dir("sess-1").glob("*.tmp"))
+
+
+def test_atomic_snapshot_failure_preserves_previous_thread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = SessionStore(tmp_path)
+    store.append_message("sess-1", "user", "durable old state")
+
+    def fail_replace(source: Path, destination: Path) -> None:
+        raise OSError("simulated crash before replace")
+
+    monkeypatch.setattr("kama_claude.core.session.store.os.replace", fail_replace)
+    with pytest.raises(OSError, match="simulated crash"):
+        store.write_messages_atomic(
+            "sess-1",
+            [{"role": "user", "content": "new state"}],
+        )
+
+    assert store.read_messages("sess-1") == [
+        {"role": "user", "content": "durable old state"}
+    ]
+    assert not list(store.session_dir("sess-1").glob("*.tmp"))
+
+
+def test_atomic_snapshot_rejects_orphan_tool_use(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    with pytest.raises(ValueError, match="unbalanced"):
+        store.write_messages_atomic(
+            "sess-1",
+            [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "orphan",
+                            "name": "read_file",
+                            "input": {},
+                        }
+                    ],
+                }
+            ],
+        )

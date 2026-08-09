@@ -137,6 +137,7 @@ async def test_usage_event_published_after_stream() -> None:
     assert ue.input_tokens == 200  # type: ignore[attr-defined]
     assert ue.output_tokens == 75  # type: ignore[attr-defined]
     assert ue.cache_read_input_tokens == 150  # type: ignore[attr-defined]
+    assert ue.context_pct == (200 + 150 + 75) / 200_000  # type: ignore[attr-defined]
 
 
 # 功能：验证事件发布顺序为 model_selected → token（×N） → usage
@@ -201,3 +202,33 @@ async def test_no_tokens_when_response_is_empty() -> None:
     tokens = [e for e in events if e.type == "llm.token"]  # type: ignore[attr-defined]
     assert tokens == []
     assert result.text == ""
+
+
+async def test_message_cache_breakpoint_is_request_only() -> None:
+    provider, client = _make_provider()
+    messages: list[dict[str, object]] = [
+        {"role": "user", "content": "hello"},
+    ]
+
+    await _chat(provider, messages=messages)
+
+    sent = client.messages.stream.call_args.kwargs["messages"]
+    assert sent[-1]["content"][-1]["cache_control"] == {"type": "ephemeral"}
+    assert messages == [{"role": "user", "content": "hello"}]
+
+
+async def test_thinking_tail_is_not_used_as_cache_breakpoint() -> None:
+    provider, client = _make_provider()
+    messages: list[dict[str, object]] = [
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "thinking", "thinking": "private", "signature": "sig"}
+            ],
+        }
+    ]
+
+    await _chat(provider, messages=messages)
+
+    sent = client.messages.stream.call_args.kwargs["messages"]
+    assert "cache_control" not in sent[-1]["content"][-1]

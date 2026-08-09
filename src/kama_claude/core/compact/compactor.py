@@ -75,15 +75,30 @@ class Compactor:
         context: ExecutionContext,
         provider: LLMProvider,
         focus: str = "",
+        *,
+        continue_run: bool = False,
     ) -> CompactionResult | None:
         result = await self.compact_messages(context.messages, provider, focus=focus)
         if result is None:
             return None
 
         context.messages = [
-            {"role": "user", "content": result.summary_text},
+            {
+                "role": "user",
+                "content": "[Previous conversation summary]\n" + result.summary_text,
+            },
             {"role": "assistant", "content": "Understood, I'll continue from this summary."},
         ]
+        if continue_run:
+            context.messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "Continue the unfinished task from the summary. "
+                        "Use tools as needed and complete the original goal."
+                    ),
+                }
+            )
         self._write_summary(result.summary_text)
         await self._bus.publish(
             ContextCompactedEvent(

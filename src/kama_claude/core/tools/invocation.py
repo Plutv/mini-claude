@@ -72,6 +72,7 @@ async def invoke_tool(
     permission_manager: PermissionManager | None = None,
     session_id: str = "",
     artifact_store: ToolArtifactStore | None = None,
+    artifact_threshold: int | None = None,
 ) -> ToolResult:
     t0 = time.monotonic()
 
@@ -158,7 +159,11 @@ async def invoke_tool(
                 error_message = result.content
             else:
                 if artifact_store is not None:
-                    result = await artifact_store.externalize(tool_call, result)
+                    result = await artifact_store.externalize(
+                        tool_call,
+                        result,
+                        threshold=artifact_threshold,
+                    )
                 await bus.publish(
                     ToolCallFinishedEvent(
                         run_id=run_id,

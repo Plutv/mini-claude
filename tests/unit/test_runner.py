@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
+import pytest
 from pydantic import BaseModel
 
+from kama_claude.core.compact.budget import tool_pairs_balanced
 from kama_claude.core.config import KamaConfig
 from kama_claude.core.events.bus import EventBus
-from kama_claude.core.llm.types import LlmResponse, ToolCallBlock
+from kama_claude.core.llm.types import LlmResponse, ToolCallBlock, UsageStats
 from kama_claude.core.runner import AgentRunner
 
 # --- mock provider -----------------------------------------------------------
@@ -309,3 +312,160 @@ async def test_session_registers_note_save_tool(tmp_path: Path) -> None:
     await runner.run_and_capture("remember", run_id="run-1", session=session, store=store)
 
     assert "Use Python 3.12" in store.read_notes("sess-1")
+
+
+async def test_auto_compaction_persists_summary_and_uncompressed_tail(
+    tmp_path: Path,
+) -> None:
+    from kama_claude.core.session.model import Session
+    from kama_claude.core.session.store import SessionStore
+
+    class _CompactingProvider:
+        def __init__(self) -> None:
+            self.main_calls = 0
+            self.second_call_messages: list[dict[str, object]] = []
+
+        async def chat(
+            self,
+            messages: list[dict[str, object]],
+            tool_schemas: list[dict[str, object]],
+            bus: EventBus,
+            run_id: str,
+            *,
+            step: int = 0,
+            system: str | None = None,
+        ) -> LlmResponse:
+            if run_id == "compact":
+                return LlmResponse(
+                    stop_reason="end_turn",
+                    text="durable compacted summary",
+                    usage=UsageStats(100, 20),
+                )
+            self.main_calls += 1
+            if self.main_calls == 1:
+                return LlmResponse(
+                    stop_reason="tool_use",
+                    tool_calls=[ToolCallBlock("tool-1", "unknown", {})],
+                    usage=UsageStats(180_000, 10, context_pct=0.90),
+                )
+            self.second_call_messages = [dict(message) for message in messages]
+            return LlmResponse(
+                stop_reason="end_turn",
+                text="final answer after compaction",
+                usage=UsageStats(500, 20, context_pct=0.01),
+            )
+
+    store = SessionStore(tmp_path / "sessions")
+    session = Session(
+        id="sess-compact",
+        mode="chat",
+        status="active",
+        title="",
+        created_at="t",
+        updated_at="t",
+    )
+    store.write_meta(session)
+    store.append_message(session.id, "user", "complete a long task")
+    provider = _CompactingProvider()
+    config = _config(max_steps=3)
+    config.compaction.auto_threshold = 0.85
+
+    runner = AgentRunner(config, provider=provider, runs_dir=tmp_path / "runs")
+    outcome = await runner.run_and_capture(
+        "complete a long task",
+        run_id="run-compact",
+        session=session,
+        store=store,
+    )
+
+    assert outcome.status == "success"
+    assert [message["role"] for message in provider.second_call_messages] == [
+        "user",
+        "assistant",
+        "user",
+    ]
+    restored = store.read_messages(session.id)
+    assert restored[0]["content"] == (
+        "[Previous conversation summary]\ndurable compacted summary"
+    )
+    assert restored[-1]["content"][0]["text"] == "final answer after compaction"
+    assert "Continue the unfinished task" in restored[-2]["content"]
+
+    # A subsequent run reads the exact compacted snapshot plus its untouched tail.
+    store.append_message(session.id, "user", "what happened next?")
+    capture = _CapturingProvider(LlmResponse(stop_reason="end_turn", text="continued"))
+    follow_up = AgentRunner(config, provider=capture, runs_dir=tmp_path / "runs-2")
+    await follow_up.run_and_capture(
+        "what happened next?",
+        run_id="run-follow-up",
+        session=session,
+        store=store,
+    )
+    assert capture.messages[:-1] == restored
+    assert capture.messages[-1] == {"role": "user", "content": "what happened next?"}
+
+
+async def test_cancel_during_next_llm_call_keeps_last_balanced_checkpoint(
+    tmp_path: Path,
+) -> None:
+    from kama_claude.core.session.model import Session
+    from kama_claude.core.session.store import SessionStore
+
+    class _BlockingProvider:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.second_call_started = asyncio.Event()
+
+        async def chat(
+            self,
+            messages: list[dict[str, object]],
+            tool_schemas: list[dict[str, object]],
+            bus: EventBus,
+            run_id: str,
+            *,
+            step: int = 0,
+            system: str | None = None,
+        ) -> LlmResponse:
+            self.calls += 1
+            if self.calls == 1:
+                return LlmResponse(
+                    stop_reason="tool_use",
+                    tool_calls=[ToolCallBlock("tool-1", "unknown", {})],
+                    usage=UsageStats(100, 10, context_pct=0.01),
+                )
+            self.second_call_started.set()
+            await asyncio.Event().wait()
+            raise AssertionError("unreachable")
+
+    store = SessionStore(tmp_path / "sessions")
+    session = Session(
+        id="sess-crash",
+        mode="chat",
+        status="active",
+        title="",
+        created_at="t",
+        updated_at="t",
+    )
+    store.append_message(session.id, "user", "run a tool")
+    provider = _BlockingProvider()
+    runner = AgentRunner(_config(max_steps=3), provider=provider, runs_dir=tmp_path)
+
+    task = asyncio.create_task(
+        runner.run_and_capture(
+            "run a tool",
+            run_id="run-crash",
+            session=session,
+            store=store,
+        )
+    )
+    await provider.second_call_started.wait()
+
+    durable_during_run = store.read_messages(session.id)
+    assert tool_pairs_balanced(durable_during_run)
+    assert len(durable_during_run) == 3
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert store.read_messages(session.id) == durable_during_run

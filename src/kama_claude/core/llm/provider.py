@@ -37,6 +37,33 @@ _SYSTEM_PROMPT = (
 )
 
 
+def _with_message_cache_breakpoint(
+    messages: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Add a request-only cache marker without polluting persisted history."""
+    if not messages:
+        return messages
+
+    rendered = list(messages)
+    last = rendered[-1]
+    raw_content = last.get("content")
+    if isinstance(raw_content, str):
+        content: list[dict[str, object]] = [{"type": "text", "text": raw_content}]
+    elif isinstance(raw_content, list):
+        content = [dict(block) for block in raw_content if isinstance(block, dict)]
+    else:
+        return rendered
+
+    if not content:
+        return rendered
+    tail = content[-1]
+    if tail.get("type") in ("thinking", "redacted_thinking"):
+        return rendered
+    content[-1] = {**tail, "cache_control": {"type": "ephemeral"}}
+    rendered[-1] = {**last, "content": content}
+    return rendered
+
+
 # 返回当前 UTC 时间的 ISO 8601 字符串
 def _now() -> str:
     return datetime.now(UTC).isoformat()
@@ -87,7 +114,7 @@ class AnthropicProvider:
             "model": self._model,
             "max_tokens": 8192,
             "system": system_blocks,
-            "messages": messages,
+            "messages": _with_message_cache_breakpoint(messages),
         }
         if tools:
             kwargs["tools"] = tools
@@ -125,7 +152,16 @@ class AnthropicProvider:
         usage = final_message.usage
         cache_read: int = getattr(usage, "cache_read_input_tokens", 0) or 0
         cache_create: int = getattr(usage, "cache_creation_input_tokens", 0) or 0
-        context_pct = usage.input_tokens / _context_window(self._model)
+        # Anthropic reports cached prompt tokens separately from input_tokens.
+        # Include the newly generated output because it becomes part of the
+        # next request's context and drives the maintenance decision.
+        next_context_tokens = (
+            usage.input_tokens
+            + cache_read
+            + cache_create
+            + usage.output_tokens
+        )
+        context_pct = next_context_tokens / _context_window(self._model)
 
         await bus.publish(
             LlmUsageEvent(
@@ -148,7 +184,13 @@ class AnthropicProvider:
                 )
             elif block.type == "thinking":
                 # thinking blocks must be passed back verbatim in subsequent requests
-                thinking_blocks.append({"type": "thinking", "thinking": block.thinking, "signature": block.signature})
+                thinking_blocks.append(
+                    {
+                        "type": "thinking",
+                        "thinking": block.thinking,
+                        "signature": block.signature,
+                    }
+                )
 
         return LlmResponse(
             stop_reason=final_message.stop_reason or "end_turn",

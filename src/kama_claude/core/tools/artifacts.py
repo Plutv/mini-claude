@@ -11,22 +11,33 @@ from kama_claude.core.llm.types import ToolCallBlock
 from kama_claude.core.tools.base import ToolResult
 
 _DEFAULT_THRESHOLD = 32 * 1024
-_HEAD_CHARS = 2_000
-_TAIL_CHARS = 1_000
+_DEFAULT_KEEP_CHARS = 4_000
 _SAFE_NAME = re.compile(r"[^a-zA-Z0-9_.-]+")
 
 
 class ToolArtifactStore:
     """Persist oversized tool output and return a compact model-visible reference."""
 
-    def __init__(self, directory: Path, *, threshold: int = _DEFAULT_THRESHOLD) -> None:
+    def __init__(
+        self,
+        directory: Path,
+        *,
+        threshold: int = _DEFAULT_THRESHOLD,
+        keep_chars: int = _DEFAULT_KEEP_CHARS,
+    ) -> None:
         self._directory = directory
         self._threshold = threshold
+        self._keep_chars = keep_chars
 
     async def externalize(
-        self, tool_call: ToolCallBlock, result: ToolResult
+        self,
+        tool_call: ToolCallBlock,
+        result: ToolResult,
+        *,
+        threshold: int | None = None,
     ) -> ToolResult:
-        if result.is_error or len(result.content.encode("utf-8")) <= self._threshold:
+        effective_threshold = self._threshold if threshold is None else threshold
+        if result.is_error or len(result.content.encode("utf-8")) <= effective_threshold:
             return result
         return await asyncio.to_thread(self._write, tool_call, result)
 
@@ -56,9 +67,12 @@ class ToolArtifactStore:
             encoding="utf-8",
         )
 
-        preview = result.content[:_HEAD_CHARS]
-        if len(result.content) > _HEAD_CHARS + _TAIL_CHARS:
-            preview += "\n... [artifact content omitted] ...\n" + result.content[-_TAIL_CHARS:]
+        head_chars = max(1, self._keep_chars // 2)
+        tail_chars = max(0, self._keep_chars - head_chars)
+        preview = result.content[:head_chars]
+        if len(result.content) > head_chars + tail_chars:
+            suffix = result.content[-tail_chars:] if tail_chars else ""
+            preview += "\n... [artifact content omitted] ...\n" + suffix
         reference = (
             f"{preview}\n\n"
             "[large tool result stored as artifact]\n"

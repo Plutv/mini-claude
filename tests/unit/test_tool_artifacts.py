@@ -68,3 +68,29 @@ async def test_small_tool_output_stays_inline(tmp_path) -> None:
 
     assert result.content == "small"
     assert not (tmp_path / "artifacts").exists()
+
+
+@pytest.mark.asyncio
+async def test_hundred_thousand_character_output_reduces_by_over_ninety_percent(
+    tmp_path,
+) -> None:
+    original = "a" * 100_000
+    registry = ToolRegistry()
+    registry.register(_LargeOutputTool(original))
+    store = ToolArtifactStore(
+        tmp_path / "artifacts",
+        threshold=8_000,
+        keep_chars=4_000,
+    )
+
+    result = await invoke_tool(
+        registry,
+        ToolCallBlock(id="call-100k", name="large_output", input={}),
+        EventBus(),
+        "run-100k",
+        artifact_store=store,
+        artifact_threshold=8_000,
+    )
+
+    assert len(result.content) < len(original) * 0.10
+    assert (tmp_path / "artifacts" / "large_output-call-100k.txt").stat().st_size == 100_000

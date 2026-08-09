@@ -28,7 +28,8 @@ def test_long_tool_result_truncated() -> None:
     truncated = result[0]["content"][0]["content"]
     assert len(truncated) < len(text)
     assert "chars omitted" in truncated
-    assert truncated.startswith("y" * 4000)
+    assert truncated.startswith("y" * 2000)
+    assert truncated.endswith("y" * 2000)
 
 
 # 功能：验证 tool_result 内容恰好等于阈值时不截断

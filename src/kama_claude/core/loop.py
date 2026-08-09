@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from kama_claude.core.bus.events import StepFinishedEvent, StepStartedEvent
 from kama_claude.core.context import ExecutionContext
@@ -15,7 +16,7 @@ from kama_claude.core.tools.invocation import invoke_tool
 from kama_claude.core.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
-    from kama_claude.core.compact.compactor import Compactor
+    from kama_claude.core.compact.engine import ContextEngine
     from kama_claude.core.permissions.manager import PermissionManager
     from kama_claude.core.tools.artifacts import ToolArtifactStore
 
@@ -35,8 +36,8 @@ class AgentLoop:
         bus: EventBus,
         *,
         permission_manager: PermissionManager | None = None,
-        compactor: Compactor | None = None,
-        compact_threshold: float = 0.80,
+        context_engine: ContextEngine | None = None,
+        checkpoint: Callable[[list[dict[str, Any]]], Awaitable[None]] | None = None,
         session_id: str = "",
         artifact_store: ToolArtifactStore | None = None,
     ) -> None:
@@ -44,8 +45,8 @@ class AgentLoop:
         self._registry = registry
         self._bus = bus
         self._permission_manager = permission_manager
-        self._compactor = compactor
-        self._compact_threshold = compact_threshold
+        self._context_engine = context_engine
+        self._checkpoint = checkpoint
         self._session_id = session_id
         self._artifact_store = artifact_store
 
@@ -60,6 +61,11 @@ class AgentLoop:
             permission_manager=self._permission_manager,
             session_id=self._session_id,
             artifact_store=self._artifact_store,
+            artifact_threshold=(
+                self._context_engine.tool_artifact_threshold()
+                if self._context_engine is not None
+                else None
+            ),
         )
         return tool_call, result
 
@@ -102,6 +108,24 @@ class AgentLoop:
                 StepStartedEvent(run_id=context.run_id, step=context.step, ts=_now())
             )
 
+            if self._context_engine is not None:
+                maintenance = await self._context_engine.prepare(context, self._provider)
+                if maintenance.changed:
+                    log.info(
+                        "context maintained run_id=%s step=%d utilization=%.3f "
+                        "budgeted=%d snipped=%d micro=%d full=%s removed_chars=%d",
+                        context.run_id,
+                        context.step,
+                        maintenance.utilization,
+                        maintenance.budgeted_results,
+                        maintenance.snipped_results,
+                        maintenance.microcompacted_results,
+                        maintenance.fully_compacted,
+                        maintenance.removed_chars,
+                    )
+                    if self._checkpoint is not None:
+                        await self._checkpoint(context.messages)
+
             # [plan] call LLM — API errors terminate the run
             try:
                 response = await self._provider.chat(
@@ -126,6 +150,9 @@ class AgentLoop:
                 )
                 context.mark_failed("llm_error")
                 break
+
+            if self._context_engine is not None:
+                self._context_engine.record_usage(response.usage)
 
             # [observe] append assistant content blocks to context
             # thinking blocks must come first and be preserved verbatim for extended thinking mode
@@ -164,17 +191,11 @@ class AgentLoop:
             elif context.step >= context.max_steps:
                 context.mark_failed("exceeded_max_steps")
 
-            # 工具结果追加完毕（messages 末尾为 user）后检查压缩，仅在 run 继续时触发
-            # 此时压缩结果 [user_summary, assistant_ack] 对下一次 LLM 调用是合法输入
-            if (
-                not context.is_done()
-                and response.stop_reason == "tool_use"
-                and self._compactor is not None
-                and self._compact_threshold > 0
-                and response.usage is not None
-                and response.usage.context_pct >= self._compact_threshold
-            ):
-                await self._compactor.compact(context, self._provider)
+            # A completed step is always protocol-safe: every assistant
+            # tool_use now has its matching user tool_result. Persist only at
+            # this boundary so a daemon crash never leaves an orphan pair.
+            if self._checkpoint is not None:
+                await self._checkpoint(context.messages)
 
             await self._bus.publish(
                 StepFinishedEvent(run_id=context.run_id, step=context.step, ts=_now())
