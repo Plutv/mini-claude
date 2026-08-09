@@ -162,15 +162,17 @@ class ContextEngine:
                 aggressive=True,
             )
 
+        compactor = self._compactor
         wants_full = (
-            self._compactor is not None
+            compactor is not None
             and self._policy.full_compact_threshold > 0
             and utilization >= self._policy.full_compact_threshold
         )
         if wants_full:
+            assert compactor is not None
             context.messages = working
             try:
-                result = await self._compactor.compact(
+                result = await compactor.compact(
                     context,
                     provider,
                     continue_run=True,

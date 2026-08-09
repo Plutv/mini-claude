@@ -270,6 +270,7 @@ class SpawnAgentTool(BaseTool):
 
         profile_tools = set(profile.allowed_tools) if profile and profile.allowed_tools else None
         requested_tools = set(allowed_tools) if allowed_tools else None
+        allowed: set[str] | None
         if profile_tools is not None and requested_tools is not None:
             allowed = profile_tools & requested_tools
         else:

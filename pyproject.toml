@@ -48,6 +48,7 @@ select = ["E", "F", "I", "UP"] # pycodestyle 错误、Pyflakes、isort、pyupgra
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
+"src/kama_claude/tui/app.py" = ["E501"] # ASCII banner and UI copy are intentionally wide
 "tests/**/*.py" = ["E501"]   # 测试文件的中文注释允许超过行宽限制
 "scripts/**/*.py" = ["E501"] # 脚本文件的文档字符串允许超过行宽限制
 

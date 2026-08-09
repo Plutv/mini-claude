@@ -6,8 +6,6 @@ import logging
 import time
 from typing import Any
 
-log = logging.getLogger(__name__)
-
 from rich.markdown import Markdown
 from textual import events
 from textual.app import App, ComposeResult
@@ -21,6 +19,8 @@ from textual.widgets import Label, Static, TextArea
 from kama_claude.core.config import KamaConfig
 from kama_claude.core.skills.loader import SkillLoader
 from kama_claude.core.transport.socket_client import IpcError, SocketClient
+
+log = logging.getLogger(__name__)
 
 
 def _preview(s: str, n: int) -> str:

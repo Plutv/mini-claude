@@ -84,10 +84,13 @@ class AnthropicProvider:
             api_key = os.environ.get(api_key_env)
             if not api_key:
                 raise SystemExit(f"{api_key_env} not set")
-            kwargs: dict[str, object] = {"api_key": api_key}
             if base_url:
-                kwargs["base_url"] = base_url
-            self._client: Any = anthropic.AsyncAnthropic(**kwargs)
+                self._client: Any = anthropic.AsyncAnthropic(
+                    api_key=api_key,
+                    base_url=base_url,
+                )
+            else:
+                self._client = anthropic.AsyncAnthropic(api_key=api_key)
         else:
             self._client = client
         self._model = model
