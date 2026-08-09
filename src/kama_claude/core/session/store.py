@@ -39,15 +39,32 @@ class SessionStore:
     def write_meta(self, session: Session) -> None:
         path = self.session_dir(session.id)
         path.mkdir(parents=True, exist_ok=True)
-        (path / "meta.json").write_text(
-            json.dumps(session.to_dict(), ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        target = path / "meta.json"
+        temp = path / f".{target.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        try:
+            with temp.open("w", encoding="utf-8") as handle:
+                handle.write(json.dumps(session.to_dict(), ensure_ascii=False, indent=2) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp, target)
+        finally:
+            temp.unlink(missing_ok=True)
 
     # 从 meta.json 读取 session meta
     def read_meta(self, sid: str) -> Session:
         data = json.loads((self.session_dir(sid) / "meta.json").read_text(encoding="utf-8"))
         return Session.from_dict(data)
+
+    def list_sessions(self) -> list[Session]:
+        """Load valid session metadata, newest activity first."""
+        sessions: list[Session] = []
+        for meta_path in self._root.glob("*/meta.json"):
+            try:
+                data = json.loads(meta_path.read_text(encoding="utf-8"))
+                sessions.append(Session.from_dict(data))
+            except (OSError, ValueError, KeyError, json.JSONDecodeError, TypeError):
+                logger.warning("skip broken session metadata path=%s", meta_path)
+        return sorted(sessions, key=lambda item: item.updated_at, reverse=True)
 
     # 追加一条 Anthropic API 消息到 thread.jsonl
     def append_message(

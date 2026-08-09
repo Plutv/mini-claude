@@ -7,6 +7,7 @@ from kama_claude.cli.commands.chat import cmd_chat
 from kama_claude.cli.commands.core import cmd_core_start, cmd_core_status, cmd_core_stop
 from kama_claude.cli.commands.ping import cmd_ping
 from kama_claude.cli.commands.run import cmd_run
+from kama_claude.cli.commands.sessions import cmd_sessions
 from kama_claude.cli.commands.trace import cmd_trace
 from kama_claude.cli.commands.version import cmd_version
 from kama_claude.core.config import get_config
@@ -20,7 +21,13 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("ping", help="Ping the core daemon")
-    subparsers.add_parser("chat", help="Start a multi-turn chat session")
+    chat_parser = subparsers.add_parser("chat", help="Start or resume a chat session")
+    resume_group = chat_parser.add_mutually_exclusive_group()
+    resume_group.add_argument("--resume", metavar="SESSION_ID", help="Resume a session")
+    resume_group.add_argument("--last", action="store_true", help="Resume latest chat session")
+
+    sessions_parser = subparsers.add_parser("sessions", help="List persisted sessions")
+    sessions_parser.add_argument("--limit", type=int, default=20)
 
     run_parser = subparsers.add_parser("run", help="Run an agent task")
     run_parser.add_argument("--goal", required=True, help="Goal for the agent to accomplish")
@@ -50,7 +57,9 @@ def main() -> None:
     if args.command == "ping":
         cmd_ping(config)
     elif args.command == "chat":
-        cmd_chat(config)
+        cmd_chat(config, resume_session_id=args.resume, resume_last=args.last)
+    elif args.command == "sessions":
+        cmd_sessions(config, args.limit)
     elif args.command == "run":
         cmd_run(args.goal, config)
     elif args.command == "core":

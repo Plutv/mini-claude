@@ -60,7 +60,12 @@ async def _readline(prompt: str) -> str:
 
 
 # 异步核心：创建 chat session，循环读取用户输入并发送到 daemon；权限请求时优先处理审批
-async def _chat_async(config: KamaConfig) -> int:
+async def _chat_async(
+    config: KamaConfig,
+    *,
+    resume_session_id: str | None = None,
+    resume_last: bool = False,
+) -> int:
     client = SocketClient(config.host, config.port)
     try:
         await client.connect()
@@ -80,9 +85,24 @@ async def _chat_async(config: KamaConfig) -> int:
                 "scope": "global",
             },
         )
-        created = await client.send_command("session.create", {"mode": "chat"})
-        session_id = str(created["session_id"])
-        print(f"[session: {session_id}]")
+        if resume_last:
+            listed = await client.send_command("session.list", {"limit": 50})
+            candidates = [s for s in listed["sessions"] if s["mode"] == "chat"]
+            if not candidates:
+                print("error: no chat session to resume", file=sys.stderr)
+                return 1
+            resume_session_id = str(candidates[0]["session_id"])
+
+        if resume_session_id is not None:
+            resumed = await client.send_command(
+                "session.resume", {"session_id": resume_session_id}
+            )
+            session_id = str(resumed["session"]["session_id"])
+            print(f"[resumed session: {session_id}, messages={len(resumed['messages'])}]")
+        else:
+            created = await client.send_command("session.create", {"mode": "chat"})
+            session_id = str(created["session_id"])
+            print(f"[session: {session_id}]")
 
         while True:
             try:
@@ -113,7 +133,6 @@ async def _chat_async(config: KamaConfig) -> int:
                 {"session_id": session_id, "content": content},
             )
 
-        await client.send_command("session.close", {"session_id": session_id})
     except IpcError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -128,9 +147,20 @@ async def _chat_async(config: KamaConfig) -> int:
 
 
 # 执行 kama chat 命令
-def cmd_chat(config: KamaConfig) -> None:
+def cmd_chat(
+    config: KamaConfig,
+    *,
+    resume_session_id: str | None = None,
+    resume_last: bool = False,
+) -> None:
     try:
-        exit_code = asyncio.run(_chat_async(config))
+        exit_code = asyncio.run(
+            _chat_async(
+                config,
+                resume_session_id=resume_session_id,
+                resume_last=resume_last,
+            )
+        )
     except KeyboardInterrupt:
         sys.exit(130)
     sys.exit(exit_code)

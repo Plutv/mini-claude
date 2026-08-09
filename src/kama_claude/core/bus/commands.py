@@ -52,6 +52,37 @@ class SessionCreateResult(BaseModel):
     status: SessionStatus
 
 
+class SessionInfo(BaseModel):
+    session_id: str
+    mode: SessionMode
+    status: SessionStatus
+    title: str
+    created_at: str
+    updated_at: str
+    run_count: int
+    interrupted_reason: str | None = None
+
+
+class SessionListCommand(BaseModel):
+    type: Literal["session.list"] = "session.list"
+    status: SessionStatus | None = None
+    limit: int = Field(default=50, ge=1, le=500)
+
+
+class SessionListResult(BaseModel):
+    sessions: list[SessionInfo]
+
+
+class SessionResumeCommand(BaseModel):
+    type: Literal["session.resume"] = "session.resume"
+    session_id: str
+
+
+class SessionResumeResult(BaseModel):
+    session: SessionInfo
+    messages: list[dict[str, Any]]
+
+
 class SessionSendMessageCommand(BaseModel):
     type: Literal["session.send_message"] = "session.send_message"
     session_id: str
@@ -108,6 +139,8 @@ Command = Annotated[
     | AgentRunCommand
     | EventSubscribeCommand
     | SessionCreateCommand
+    | SessionListCommand
+    | SessionResumeCommand
     | SessionSendMessageCommand
     | SessionGetHistoryCommand
     | SessionCloseCommand

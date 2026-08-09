@@ -30,6 +30,11 @@ from kama_claude.core.bus.commands import (
     SessionCreateResult,
     SessionGetHistoryCommand,
     SessionGetHistoryResult,
+    SessionInfo,
+    SessionListCommand,
+    SessionListResult,
+    SessionResumeCommand,
+    SessionResumeResult,
     SessionSendMessageCommand,
     SessionSendMessageResult,
 )
@@ -118,6 +123,32 @@ class CoreApp:
         cmd = SessionCreateCommand.model_validate(params)
         session = await self._sessions.create(mode=cmd.mode, title=cmd.title)
         return SessionCreateResult(session_id=session.id, status=session.status)
+
+    @staticmethod
+    def _session_info(session: Any) -> SessionInfo:
+        return SessionInfo(
+            session_id=session.id,
+            mode=session.mode,
+            status=session.status,
+            title=session.title,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+            run_count=len(session.run_ids),
+            interrupted_reason=session.interrupted_reason,
+        )
+
+    async def _session_list_handler(self, params: dict[str, Any]) -> SessionListResult:
+        assert self._sessions is not None
+        cmd = SessionListCommand.model_validate(params)
+        sessions = await self._sessions.list_sessions(status=cmd.status, limit=cmd.limit)
+        return SessionListResult(sessions=[self._session_info(item) for item in sessions])
+
+    async def _session_resume_handler(self, params: dict[str, Any]) -> SessionResumeResult:
+        assert self._sessions is not None
+        cmd = SessionResumeCommand.model_validate(params)
+        session = await self._sessions.resume(cmd.session_id)
+        messages = await self._sessions.get_history(session.id)
+        return SessionResumeResult(session=self._session_info(session), messages=messages)
 
     # 向 session 发送一条用户消息并同步等待对应 run 完成
     async def _session_send_handler(self, params: dict[str, Any]) -> SessionSendMessageResult:
@@ -269,6 +300,8 @@ class CoreApp:
         server.register("agent.run", self._agent_run_handler)
         server.register("event.subscribe", self._subscribe_handler)
         server.register("session.create", self._session_create_handler)
+        server.register("session.list", self._session_list_handler)
+        server.register("session.resume", self._session_resume_handler)
         server.register("session.send_message", self._session_send_handler)
         server.register("session.get_history", self._session_history_handler)
         server.register("session.close", self._session_close_handler)

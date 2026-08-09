@@ -7,7 +7,12 @@ import pytest
 from kama_claude.core.bus.envelope import HandlerError
 from kama_claude.core.events.bus import EventBus
 from kama_claude.core.runner import RunOutcome
-from kama_claude.core.session.manager import SESSION_CLOSED, SESSION_NOT_FOUND, SessionManager
+from kama_claude.core.session.manager import (
+    SESSION_CLOSED,
+    SESSION_NOT_FOUND,
+    SESSION_NOT_RESUMABLE,
+    SessionManager,
+)
 from kama_claude.core.session.model import Session
 from kama_claude.core.session.store import SessionStore
 
@@ -104,3 +109,90 @@ async def test_closed_session_rejects_message(tmp_path: Path) -> None:
     with pytest.raises(HandlerError) as exc:
         await manager.send_message(session.id, "again")
     assert exc.value.code == SESSION_CLOSED
+
+
+async def test_manager_rebuilds_index_and_marks_crashed_run_interrupted(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+    crashed = Session(
+        id="sess-crashed",
+        mode="chat",
+        status="running",
+        title="recover me",
+        created_at="2026-01-01T00:00:00+00:00",
+        updated_at="2026-01-01T00:01:00+00:00",
+        run_ids=["run-1"],
+    )
+    store.write_meta(crashed)
+    store.append_message(crashed.id, "user", "unfinished")
+
+    manager = SessionManager(store, lambda: _Runner(), EventBus())  # type: ignore[arg-type]
+
+    restored = await manager.get(crashed.id)
+    assert restored.status == "interrupted"
+    assert restored.interrupted_reason == "daemon_restarted"
+    assert await manager.get_history(crashed.id) == [
+        {"role": "user", "content": "unfinished"}
+    ]
+    assert store.read_meta(crashed.id).status == "interrupted"
+
+
+async def test_resume_reopens_closed_chat_and_keeps_history(tmp_path: Path) -> None:
+    events: list[object] = []
+    bus = EventBus()
+
+    async def collect(event: object) -> None:
+        events.append(event)
+
+    bus.subscribe(collect)
+    store = SessionStore(tmp_path)
+    manager = SessionManager(store, lambda: _Runner(), bus)  # type: ignore[arg-type]
+    session = await manager.create("chat", "old chat")
+    store.append_message(session.id, "user", "remember this")
+    await manager.close(session.id)
+
+    resumed = await manager.resume(session.id)
+
+    assert resumed.status == "waiting_for_input"
+    assert await manager.get_history(session.id) == [
+        {"role": "user", "content": "remember this"}
+    ]
+    assert events[-1].type == "session.resumed"  # type: ignore[attr-defined]
+
+
+async def test_one_shot_session_cannot_be_resumed(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    manager = SessionManager(store, lambda: _Runner(), EventBus())  # type: ignore[arg-type]
+    session = await manager.create("one_shot")
+
+    with pytest.raises(HandlerError) as exc:
+        await manager.resume(session.id)
+
+    assert exc.value.code == SESSION_NOT_RESUMABLE
+
+
+async def test_list_sessions_is_newest_first_and_filterable(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    old = Session(
+        id="sess-old",
+        mode="chat",
+        status="closed",
+        title="old",
+        created_at="2026-01-01T00:00:00+00:00",
+        updated_at="2026-01-01T00:00:00+00:00",
+    )
+    new = Session(
+        id="sess-new",
+        mode="chat",
+        status="waiting_for_input",
+        title="new",
+        created_at="2026-01-02T00:00:00+00:00",
+        updated_at="2026-01-02T00:00:00+00:00",
+    )
+    store.write_meta(old)
+    store.write_meta(new)
+    manager = SessionManager(store, lambda: _Runner(), EventBus())  # type: ignore[arg-type]
+
+    assert [item.id for item in await manager.list_sessions()] == ["sess-new", "sess-old"]
+    assert [item.id for item in await manager.list_sessions(status="closed")] == ["sess-old"]

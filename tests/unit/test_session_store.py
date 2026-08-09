@@ -149,3 +149,21 @@ def test_atomic_snapshot_rejects_orphan_tool_use(tmp_path: Path) -> None:
                 }
             ],
         )
+
+
+def test_list_sessions_skips_corrupt_metadata(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    session = Session(
+        id="sess-ok",
+        mode="chat",
+        status="waiting_for_input",
+        title="ok",
+        created_at="2026-01-01T00:00:00+00:00",
+        updated_at="2026-01-01T00:00:00+00:00",
+    )
+    store.write_meta(session)
+    broken = tmp_path / "sess-broken"
+    broken.mkdir()
+    (broken / "meta.json").write_text("{broken", encoding="utf-8")
+
+    assert [item.id for item in store.list_sessions()] == ["sess-ok"]

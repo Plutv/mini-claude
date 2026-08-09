@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 SESSION_NOT_FOUND = -32010
 SESSION_CLOSED = -32011
 SESSION_BUSY = -32012
+SESSION_NOT_RESUMABLE = -32013
 
 
 # 返回当前 UTC 时间的 ISO 8601 字符串
@@ -51,6 +52,18 @@ class SessionManager:
         self._sessions: dict[str, Session] = {}
         self._locks: dict[str, asyncio.Lock] = {}
         self._skill_loader = SkillLoader()
+        self._restore_index()
+
+    def _restore_index(self) -> None:
+        """Rebuild the in-memory index and repair sessions left running by a crash."""
+        for session in self._store.list_sessions():
+            if session.status in {"active", "running"}:
+                session.status = "interrupted"
+                session.interrupted_reason = "daemon_restarted"
+                session.updated_at = _now()
+                self._store.write_meta(session)
+            self._sessions[session.id] = session
+            self._locks[session.id] = asyncio.Lock()
 
     # 创建新 session 并写入 meta.json
     async def create(self, mode: SessionMode, title: str = "") -> Session:
@@ -64,6 +77,7 @@ class SessionManager:
             created_at=ts,
             updated_at=ts,
             run_ids=[],
+            interrupted_reason=None,
         )
         self._sessions[sid] = session
         self._locks[sid] = asyncio.Lock()
@@ -82,7 +96,7 @@ class SessionManager:
             if session.status == "closed":
                 raise HandlerError(SESSION_CLOSED, "session already closed")
 
-            if session.status == "waiting_for_input":
+            if session.status in {"waiting_for_input", "interrupted"}:
                 await self._bus.publish(SessionResumedEvent(session_id=sid, ts=_now()))
 
             self._store.append_message(sid, "user", content)
@@ -95,6 +109,8 @@ class SessionManager:
 
             run_id = run_id or new_run_id()
             session.run_ids.append(run_id)
+            session.status = "running"
+            session.interrupted_reason = None
             session.updated_at = _now()
             self._store.write_meta(session)
 
@@ -121,14 +137,27 @@ class SessionManager:
                     )
 
             runner = self._runner_factory()
-            await runner.run_and_capture(
-                goal,
-                run_id=run_id,
-                session=session,
-                store=self._store,
-                system_prompt_override=system_prompt_override,
-                tool_whitelist=tool_whitelist,
-            )
+            try:
+                await runner.run_and_capture(
+                    goal,
+                    run_id=run_id,
+                    session=session,
+                    store=self._store,
+                    system_prompt_override=system_prompt_override,
+                    tool_whitelist=tool_whitelist,
+                )
+            except asyncio.CancelledError:
+                session.status = "interrupted"
+                session.interrupted_reason = "run_cancelled"
+                session.updated_at = _now()
+                self._store.write_meta(session)
+                raise
+            except Exception:
+                session.status = "interrupted"
+                session.interrupted_reason = "run_failed"
+                session.updated_at = _now()
+                self._store.write_meta(session)
+                raise
 
             session.updated_at = _now()
             if session.mode == "one_shot":
@@ -145,6 +174,34 @@ class SessionManager:
                 )
             self._store.write_meta(session)
             return run_id
+
+    async def list_sessions(
+        self,
+        *,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> list[Session]:
+        sessions = sorted(self._sessions.values(), key=lambda item: item.updated_at, reverse=True)
+        if status is not None:
+            sessions = [session for session in sessions if session.status == status]
+        return sessions[: max(0, limit)]
+
+    async def resume(self, sid: str) -> Session:
+        session = self._get_session(sid)
+        if session.mode != "chat":
+            raise HandlerError(SESSION_NOT_RESUMABLE, "one-shot session cannot be resumed")
+        lock = self._locks[sid]
+        if lock.locked():
+            raise HandlerError(SESSION_BUSY, "session busy")
+        session.status = "waiting_for_input"
+        session.interrupted_reason = None
+        session.updated_at = _now()
+        self._store.write_meta(session)
+        await self._bus.publish(SessionResumedEvent(session_id=sid, ts=session.updated_at))
+        return session
+
+    async def get(self, sid: str) -> Session:
+        return self._get_session(sid)
 
     # 关闭指定 session 并更新 meta.json
     async def close(self, sid: str) -> None:
