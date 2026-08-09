@@ -32,9 +32,23 @@ class AgentConfig:
 
 
 @dataclass
+class LlmProviderConfig:
+    name: str
+    kind: str
+    model: str
+    api_key_env: str
+    base_url: str = ""
+    context_window: int = 128_000
+
+
+@dataclass
 class LlmConfig:
     default_model: str = _DEFAULT_MODEL
-    router: str = "static"  # "static" | "rule_based" (S4) | "cost_budget" (S6)
+    router: str = "static"
+    default_provider: str = "anthropic"
+    fallback_providers: list[str] = field(default_factory=list)
+    complex_provider: str = ""
+    providers: list[LlmProviderConfig] = field(default_factory=list)
 
 
 @dataclass
@@ -209,7 +223,14 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
         llm = data["llm"]
         if not isinstance(llm, dict):
             raise SystemExit("Config error: [llm] must be a table")
-        unknown_llm: set[str] = set(llm.keys()) - {"default_model", "router"}
+        unknown_llm: set[str] = set(llm.keys()) - {
+            "default_model",
+            "router",
+            "default_provider",
+            "fallback_providers",
+            "complex_provider",
+            "providers",
+        }
         if unknown_llm:
             raise SystemExit(f"Unknown [llm] keys: {', '.join(sorted(unknown_llm))}")
         if "default_model" in llm:
@@ -222,6 +243,81 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
             if not isinstance(val, str):
                 raise SystemExit("Config error: llm.router must be a string")
             config.llm.router = val
+        for key in ("default_provider", "complex_provider"):
+            if key in llm:
+                value = llm[key]
+                if not isinstance(value, str):
+                    raise SystemExit(f"Config error: llm.{key} must be a string")
+                setattr(config.llm, key, value)
+        if "fallback_providers" in llm:
+            value = llm["fallback_providers"]
+            if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+                raise SystemExit("Config error: llm.fallback_providers must be strings")
+            config.llm.fallback_providers = value
+        providers = llm.get("providers", [])
+        if not isinstance(providers, list):
+            raise SystemExit("Config error: llm.providers must be an array of tables")
+        for index, raw in enumerate(providers):
+            if not isinstance(raw, dict):
+                raise SystemExit(f"Config error: llm.providers[{index}] must be a table")
+            allowed_provider = {
+                "name",
+                "kind",
+                "model",
+                "api_key_env",
+                "base_url",
+                "context_window",
+            }
+            unknown_provider = set(raw) - allowed_provider
+            if unknown_provider:
+                raise SystemExit(
+                    f"Unknown llm.providers[{index}] keys: "
+                    f"{', '.join(sorted(unknown_provider))}"
+                )
+            for required in ("name", "kind", "model", "api_key_env"):
+                if not isinstance(raw.get(required), str) or not raw[required]:
+                    raise SystemExit(
+                        f"Config error: llm.providers[{index}].{required} is required"
+                    )
+            kind = str(raw["kind"])
+            if kind not in {"anthropic", "openai_compatible"}:
+                raise SystemExit(
+                    f"Config error: llm.providers[{index}].kind is unsupported"
+                )
+            context_window = raw.get("context_window", 128_000)
+            if not isinstance(context_window, int) or context_window <= 0:
+                raise SystemExit(
+                    f"Config error: llm.providers[{index}].context_window must be positive"
+                )
+            if kind == "openai_compatible" and not raw.get("base_url"):
+                raise SystemExit(
+                    f"Config error: llm.providers[{index}].base_url is required"
+                )
+            config.llm.providers.append(
+                LlmProviderConfig(
+                    name=str(raw["name"]),
+                    kind=kind,
+                    model=str(raw["model"]),
+                    api_key_env=str(raw["api_key_env"]),
+                    base_url=str(raw.get("base_url", "")),
+                    context_window=context_window,
+                )
+            )
+        if config.llm.providers:
+            names = [provider.name for provider in config.llm.providers]
+            if len(names) != len(set(names)):
+                raise SystemExit("Config error: llm provider names must be unique")
+            references = [
+                config.llm.default_provider,
+                *config.llm.fallback_providers,
+            ]
+            if config.llm.complex_provider:
+                references.append(config.llm.complex_provider)
+            missing = sorted(set(references) - set(names))
+            if missing:
+                raise SystemExit(
+                    f"Config error: unknown referenced LLM providers: {', '.join(missing)}"
+                )
 
     if "trace" in data:
         trace = data["trace"]

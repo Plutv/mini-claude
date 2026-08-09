@@ -41,7 +41,7 @@ from kama_claude.core.bus.commands import (
 from kama_claude.core.bus.envelope import EventPushEnvelope
 from kama_claude.core.config import KamaConfig, get_config
 from kama_claude.core.events.bus import EventBus
-from kama_claude.core.llm.provider import AnthropicProvider
+from kama_claude.core.llm.factory import build_provider
 from kama_claude.core.logging_setup import setup_logging
 from kama_claude.core.mcp.server import McpServerManager
 from kama_claude.core.memory import MemoryStore
@@ -76,6 +76,7 @@ class CoreApp:
         self._mcp_manager: McpServerManager | None = None
         self._memory_store: MemoryStore | None = None
         self._task_registry: BackgroundTaskRegistry | None = None
+        self._llm_provider: Any | None = None
 
     # 处理 core.ping 请求，返回服务版本、运行时长和接收时间
     async def _ping_handler(self, params: dict[str, Any]) -> PongResult:
@@ -274,7 +275,8 @@ class CoreApp:
         sessions_root = Path("~/.kama/sessions").expanduser()
         store = SessionStore(sessions_root)
         assert self._config is not None
-        compact_provider = AnthropicProvider(self._config.llm.default_model)
+        compact_provider = build_provider(self._config.llm)
+        self._llm_provider = compact_provider
         if self._config.memory.enabled:
             self._memory_store = MemoryStore(Path(self._config.memory.database))
         self._task_registry = BackgroundTaskRegistry(
@@ -301,6 +303,7 @@ class CoreApp:
                 mcp_manager=self._mcp_manager,
                 memory_store=self._memory_store,
                 task_registry=self._task_registry,
+                provider=compact_provider,
             ),
             bus=self._bus,
             provider=compact_provider,
@@ -344,6 +347,10 @@ class CoreApp:
             await self._task_registry.shutdown()
         if self._mcp_manager is not None:
             await self._mcp_manager.stop_all()
+        if self._llm_provider is not None:
+            close = getattr(self._llm_provider, "close", None)
+            if close is not None:
+                await close()
         await server.stop()
         if self._trace is not None:
             await self._trace.stop()

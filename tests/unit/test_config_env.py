@@ -156,3 +156,45 @@ max_actions = 7
 
     assert config.plan.enabled is False
     assert config.plan.max_actions == 7
+
+
+def test_multi_provider_router_loads_from_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = tmp_path / "providers.toml"
+    config_path.write_text(
+        """
+[llm]
+router = "rule_based"
+default_provider = "fast"
+fallback_providers = ["strong"]
+complex_provider = "strong"
+
+[[llm.providers]]
+name = "fast"
+kind = "openai_compatible"
+model = "fast-model"
+api_key_env = "FAST_API_KEY"
+base_url = "https://example.test/v1"
+context_window = 64000
+
+[[llm.providers]]
+name = "strong"
+kind = "anthropic"
+model = "strong-model"
+api_key_env = "STRONG_API_KEY"
+context_window = 200000
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("KAMA_CONFIG", str(config_path))
+
+    config = get_config()
+
+    assert config.llm.router == "rule_based"
+    assert config.llm.default_provider == "fast"
+    assert config.llm.fallback_providers == ["strong"]
+    assert config.llm.complex_provider == "strong"
+    assert [provider.name for provider in config.llm.providers] == ["fast", "strong"]
+    assert config.llm.providers[0].api_key_env == "FAST_API_KEY"

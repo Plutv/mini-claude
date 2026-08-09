@@ -71,15 +71,32 @@ def _now() -> str:
 
 class AnthropicProvider:
     # 初始化 Anthropic 客户端；client 可在测试时注入以跳过 API key 检查
-    def __init__(self, model: str, client: Any = None) -> None:
+    def __init__(
+        self,
+        model: str,
+        client: Any = None,
+        *,
+        api_key_env: str = "ANTHROPIC_API_KEY",
+        base_url: str = "",
+        context_window: int | None = None,
+    ) -> None:
         if client is None:
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            api_key = os.environ.get(api_key_env)
             if not api_key:
-                raise SystemExit("ANTHROPIC_API_KEY not set")
-            self._client: Any = anthropic.AsyncAnthropic(api_key=api_key)
+                raise SystemExit(f"{api_key_env} not set")
+            kwargs: dict[str, object] = {"api_key": api_key}
+            if base_url:
+                kwargs["base_url"] = base_url
+            self._client: Any = anthropic.AsyncAnthropic(**kwargs)
         else:
             self._client = client
         self._model = model
+        self._context_window_tokens = context_window or _context_window(model)
+
+    async def close(self) -> None:
+        close = getattr(self._client, "close", None)
+        if close is not None:
+            await close()
 
     # 流式调用 Anthropic API，逐 token 发布事件并返回 LlmResponse；网络中断时自动重试
     async def chat(
@@ -161,7 +178,7 @@ class AnthropicProvider:
             + cache_create
             + usage.output_tokens
         )
-        context_pct = next_context_tokens / _context_window(self._model)
+        context_pct = next_context_tokens / self._context_window_tokens
 
         await bus.publish(
             LlmUsageEvent(
