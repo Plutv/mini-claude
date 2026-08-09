@@ -5,6 +5,7 @@ import sys
 
 from kama_claude.cli.commands.chat import cmd_chat
 from kama_claude.cli.commands.core import cmd_core_start, cmd_core_status, cmd_core_stop
+from kama_claude.cli.commands.eval import cmd_eval
 from kama_claude.cli.commands.ping import cmd_ping
 from kama_claude.cli.commands.run import cmd_run
 from kama_claude.cli.commands.sessions import cmd_sessions
@@ -31,6 +32,9 @@ def main() -> None:
 
     run_parser = subparsers.add_parser("run", help="Run an agent task")
     run_parser.add_argument("--goal", required=True, help="Goal for the agent to accomplish")
+
+    eval_parser = subparsers.add_parser("eval", help="Evaluate a persisted run trajectory")
+    eval_parser.add_argument("events_path", help="Path to a run events.jsonl file")
 
     core_parser = subparsers.add_parser("core", help="Manage the core daemon")
     core_sub = core_parser.add_subparsers(dest="core_command")
@@ -62,6 +66,8 @@ def main() -> None:
         cmd_sessions(config, args.limit)
     elif args.command == "run":
         cmd_run(args.goal, config)
+    elif args.command == "eval":
+        cmd_eval(args.events_path)
     elif args.command == "core":
         if args.core_command == "start":
             cmd_core_start(config)
