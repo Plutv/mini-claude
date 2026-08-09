@@ -73,6 +73,12 @@ class SubagentConfig:
 
 
 @dataclass
+class PlanConfig:
+    enabled: bool = True
+    max_actions: int = 20
+
+
+@dataclass
 class McpServerConfig:
     name: str
     transport: str = "stdio"       # "stdio" | "tcp"
@@ -102,6 +108,7 @@ class KamaConfig:
     compaction: CompactionConfig = field(default_factory=CompactionConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     subagent: SubagentConfig = field(default_factory=SubagentConfig)
+    plan: PlanConfig = field(default_factory=PlanConfig)
     mcp: McpConfig = field(default_factory=McpConfig)
 
 
@@ -147,6 +154,7 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
         "compaction",
         "memory",
         "subagent",
+        "plan",
         "mcp",
     }
     if unknown:
@@ -389,6 +397,22 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
             if not isinstance(subagent["state_dir"], str):
                 raise SystemExit("Config error: subagent.state_dir must be a string")
             config.subagent.state_dir = subagent["state_dir"]
+
+    if "plan" in data:
+        plan = data["plan"]
+        if not isinstance(plan, dict):
+            raise SystemExit("Config error: [plan] must be a table")
+        unknown_plan = set(plan) - {"enabled", "max_actions"}
+        if unknown_plan:
+            raise SystemExit(f"Unknown [plan] keys: {', '.join(sorted(unknown_plan))}")
+        if "enabled" in plan:
+            if not isinstance(plan["enabled"], bool):
+                raise SystemExit("Config error: plan.enabled must be a boolean")
+            config.plan.enabled = plan["enabled"]
+        if "max_actions" in plan:
+            if not isinstance(plan["max_actions"], int) or plan["max_actions"] <= 0:
+                raise SystemExit("Config error: plan.max_actions must be positive")
+            config.plan.max_actions = plan["max_actions"]
 
 
 # 用 KAMA_* 环境变量覆盖 config 中对应字段（若变量已设置）

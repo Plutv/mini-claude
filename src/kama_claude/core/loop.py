@@ -18,6 +18,7 @@ from kama_claude.core.tools.registry import ToolRegistry
 if TYPE_CHECKING:
     from kama_claude.core.compact.engine import ContextEngine
     from kama_claude.core.permissions.manager import PermissionManager
+    from kama_claude.core.plan import PlanController
     from kama_claude.core.tools.artifacts import ToolArtifactStore
 
 
@@ -40,6 +41,7 @@ class AgentLoop:
         checkpoint: Callable[[list[dict[str, Any]]], Awaitable[None]] | None = None,
         session_id: str = "",
         artifact_store: ToolArtifactStore | None = None,
+        plan_controller: PlanController | None = None,
     ) -> None:
         self._provider = provider
         self._registry = registry
@@ -49,6 +51,7 @@ class AgentLoop:
         self._checkpoint = checkpoint
         self._session_id = session_id
         self._artifact_store = artifact_store
+        self._plan_controller = plan_controller
 
     async def _invoke_one(
         self, tool_call: ToolCallBlock, run_id: str
@@ -66,6 +69,7 @@ class AgentLoop:
                 if self._context_engine is not None
                 else None
             ),
+            plan_controller=self._plan_controller,
         )
         return tool_call, result
 
@@ -128,18 +132,21 @@ class AgentLoop:
 
             # [plan] call LLM — API errors terminate the run
             try:
+                system_prompt = (
+                    "You are a helpful AI assistant. "
+                    "Use the available tools to complete the user's goal. "
+                    "When the goal is fully achieved, respond with a final answer "
+                    "and do not call any more tools."
+                )
+                if self._plan_controller is not None:
+                    system_prompt += self._plan_controller.prompt()
                 response = await self._provider.chat(
                     messages=context.messages,
                     tool_schemas=self._registry.tool_schemas(),
                     bus=self._bus,
                     run_id=context.run_id,
                     step=context.step,
-                    system=context.system_prompt(
-                        "You are a helpful AI assistant. "
-                        "Use the available tools to complete the user's goal. "
-                        "When the goal is fully achieved, respond with a final answer "
-                        "and do not call any more tools."
-                    ),
+                    system=context.system_prompt(system_prompt),
                 )
             except asyncio.CancelledError:
                 context.mark_failed("cancelled")

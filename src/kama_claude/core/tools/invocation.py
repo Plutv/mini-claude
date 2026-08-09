@@ -23,6 +23,7 @@ from kama_claude.core.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
     from kama_claude.core.permissions.manager import PermissionManager
+    from kama_claude.core.plan import PlanController
     from kama_claude.core.tools.artifacts import ToolArtifactStore
 
 _DEFAULT_TIMEOUT: float = 120.0
@@ -73,6 +74,7 @@ async def invoke_tool(
     session_id: str = "",
     artifact_store: ToolArtifactStore | None = None,
     artifact_threshold: int | None = None,
+    plan_controller: PlanController | None = None,
 ) -> ToolResult:
     t0 = time.monotonic()
 
@@ -95,6 +97,18 @@ async def invoke_tool(
             bus, run_id, tool_call,
             "runtime_error", f"unknown tool: {tool_call.name}", elapsed(),
         )
+
+    if plan_controller is not None:
+        blocked = plan_controller.guard(tool)
+        if blocked is not None:
+            return await _fail(
+                bus,
+                run_id,
+                tool_call,
+                "plan_mode_denied",
+                blocked,
+                elapsed(),
+            )
 
     if tool.params_model is not None:
         try:
@@ -141,6 +155,18 @@ async def invoke_tool(
                 "permission_denied",
                 "Permission denied by user. You may not execute this command. "
                 "Try an alternative approach or ask the user what to do.",
+                elapsed(),
+            )
+
+    if plan_controller is not None:
+        blocked = plan_controller.guard(tool, consume_action=True)
+        if blocked is not None:
+            return await _fail(
+                bus,
+                run_id,
+                tool_call,
+                "action_budget_exceeded",
+                blocked,
                 elapsed(),
             )
 

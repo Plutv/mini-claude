@@ -20,6 +20,12 @@ from kama_claude.core.loop import AgentLoop
 from kama_claude.core.mcp.server import McpServerManager
 from kama_claude.core.memory import MemoryStore, load_context_file, project_memory_scope
 from kama_claude.core.permissions.manager import PermissionManager
+from kama_claude.core.plan import (
+    EnterPlanModeTool,
+    PlanController,
+    RequestExecutionTool,
+    UpdatePlanTool,
+)
 from kama_claude.core.runs import RUNS_DIR, new_run_id
 from kama_claude.core.session.model import Session
 from kama_claude.core.session.store import SessionStore
@@ -106,6 +112,7 @@ class AgentRunner:
         tool_whitelist: list[str] | None = None,
         memory_store: MemoryStore | None = None,
         project_scope: str = "",
+        plan_controller: PlanController | None = None,
     ) -> ToolRegistry:
         allowed: set[str] | None = set(tool_whitelist) if tool_whitelist else None
 
@@ -113,6 +120,14 @@ class AgentRunner:
             return allowed is None or name in allowed
 
         registry = ToolRegistry()
+        if plan_controller is not None:
+            for plan_tool in (
+                EnterPlanModeTool(plan_controller),
+                UpdatePlanTool(plan_controller),
+                RequestExecutionTool(plan_controller),
+            ):
+                if _ok(plan_tool.name):
+                    registry.register(plan_tool)
         for t in [
             ReadFileTool(file_versions),
             BashTool(),
@@ -276,6 +291,16 @@ class AgentRunner:
                     if session is not None and store is not None
                     else self._runs_dir
                 )
+                session_dir = (
+                    store.session_dir(session.id)
+                    if session is not None and store is not None
+                    else run_path
+                )
+                plan_controller = PlanController(
+                    session_dir / "plan.json",
+                    enabled=self._config.plan.enabled,
+                    max_actions=self._config.plan.max_actions,
+                )
                 registry = self._build_registry(
                     task_manager,
                     file_versions=file_versions,
@@ -289,11 +314,7 @@ class AgentRunner:
                     tool_whitelist=tool_whitelist,
                     memory_store=memory_store,
                     project_scope=project_scope,
-                )
-                session_dir = (
-                    store.session_dir(session.id)
-                    if session is not None and store is not None
-                    else run_path
+                    plan_controller=plan_controller,
                 )
                 compactor = Compactor(bus, session_dir, session_id_str)
                 context_engine = ContextEngine(
@@ -326,6 +347,7 @@ class AgentRunner:
                     checkpoint=checkpoint,
                     session_id=session_id_str,
                     artifact_store=artifact_store,
+                    plan_controller=plan_controller,
                 )
                 await loop.run(context)
             except asyncio.CancelledError:

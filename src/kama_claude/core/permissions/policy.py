@@ -43,6 +43,9 @@ DEFAULT_POLICIES: dict[str, ToolPolicy] = {
     "read_file":  ToolPolicy(default=PermissionDecision.ALLOW),
     "list_dir":   ToolPolicy(default=PermissionDecision.ALLOW),
     "note_save":  ToolPolicy(default=PermissionDecision.ALLOW),
+    "enter_plan_mode": ToolPolicy(default=PermissionDecision.ALLOW),
+    "update_plan": ToolPolicy(default=PermissionDecision.ALLOW),
+    "request_execution": ToolPolicy(default=PermissionDecision.ASK),
 }
 
 # 未在 DEFAULT_POLICIES 中登记的工具的兜底策略

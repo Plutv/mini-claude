@@ -135,3 +135,24 @@ state_dir = "/tmp/kama-subagents"
     assert config.subagent.max_concurrency == 2
     assert config.subagent.max_children_per_parent == 3
     assert config.subagent.state_dir == "/tmp/kama-subagents"
+
+
+def test_plan_control_loads_from_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = tmp_path / "plan.toml"
+    config_path.write_text(
+        """
+[plan]
+enabled = false
+max_actions = 7
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("KAMA_CONFIG", str(config_path))
+
+    config = get_config()
+
+    assert config.plan.enabled is False
+    assert config.plan.max_actions == 7
