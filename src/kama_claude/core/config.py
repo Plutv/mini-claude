@@ -66,6 +66,13 @@ class MemoryConfig:
 
 
 @dataclass
+class SubagentConfig:
+    max_concurrency: int = 4
+    max_children_per_parent: int = 8
+    state_dir: str = "~/.kama/subagents"
+
+
+@dataclass
 class McpServerConfig:
     name: str
     transport: str = "stdio"       # "stdio" | "tcp"
@@ -94,6 +101,7 @@ class KamaConfig:
     permission: PermissionConfig = field(default_factory=PermissionConfig)
     compaction: CompactionConfig = field(default_factory=CompactionConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
+    subagent: SubagentConfig = field(default_factory=SubagentConfig)
     mcp: McpConfig = field(default_factory=McpConfig)
 
 
@@ -138,6 +146,7 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
         "permission",
         "compaction",
         "memory",
+        "subagent",
         "mcp",
     }
     if unknown:
@@ -359,6 +368,27 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
                     raise SystemExit(f"Config error: mcp.servers[{i}].port must be an integer")
                 s.port = val
             config.mcp.servers.append(s)
+
+    if "subagent" in data:
+        subagent = data["subagent"]
+        if not isinstance(subagent, dict):
+            raise SystemExit("Config error: [subagent] must be a table")
+        allowed = {"max_concurrency", "max_children_per_parent", "state_dir"}
+        unknown_subagent = set(subagent) - allowed
+        if unknown_subagent:
+            raise SystemExit(
+                f"Unknown [subagent] keys: {', '.join(sorted(unknown_subagent))}"
+            )
+        for key in ("max_concurrency", "max_children_per_parent"):
+            if key in subagent:
+                value = subagent[key]
+                if not isinstance(value, int) or value <= 0:
+                    raise SystemExit(f"Config error: subagent.{key} must be positive")
+                setattr(config.subagent, key, value)
+        if "state_dir" in subagent:
+            if not isinstance(subagent["state_dir"], str):
+                raise SystemExit("Config error: subagent.state_dir must be a string")
+            config.subagent.state_dir = subagent["state_dir"]
 
 
 # 用 KAMA_* 环境变量覆盖 config 中对应字段（若变量已设置）

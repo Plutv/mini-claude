@@ -23,11 +23,12 @@ from kama_claude.core.permissions.manager import PermissionManager
 from kama_claude.core.runs import RUNS_DIR, new_run_id
 from kama_claude.core.session.model import Session
 from kama_claude.core.session.store import SessionStore
-from kama_claude.core.skills import SkillLoader, SkillTool
+from kama_claude.core.skills import Skill, SkillLoader, SkillTool
 from kama_claude.core.subagent.registry import BackgroundTaskRegistry
-from kama_claude.core.subagent.tool import AgentResultTool, SpawnAgentTool
+from kama_claude.core.subagent.tool import AgentCancelTool, AgentResultTool, SpawnAgentTool
 from kama_claude.core.task.manager import TaskManager
 from kama_claude.core.tools.artifacts import ToolArtifactStore
+from kama_claude.core.tools.base import ToolResult
 from kama_claude.core.tools.builtin import (
     BashTool,
     ListDirTool,
@@ -74,6 +75,7 @@ class AgentRunner:
         permission_manager: PermissionManager | None = None,
         mcp_manager: McpServerManager | None = None,
         memory_store: MemoryStore | None = None,
+        task_registry: BackgroundTaskRegistry | None = None,
     ) -> None:
         self._config = config
         self._bus = bus
@@ -86,7 +88,7 @@ class AgentRunner:
         self._memory_store = memory_store
         self._skill_loader = SkillLoader()
         # 跨 run 共享的后台 subagent 任务注册表
-        self._task_registry = BackgroundTaskRegistry()
+        self._task_registry = task_registry or BackgroundTaskRegistry()
 
     # 构建工具注册表，注入 TaskManager（任务工具共享同一实例）；可选注入 SpawnAgentTool
     def _build_registry(
@@ -138,25 +140,46 @@ class AgentRunner:
             if _ok(note_tool.name):
                 registry.register(note_tool)
         if provider is not None and bus is not None and run_id is not None:
-            if _ok("skill"):
-                registry.register(SkillTool(self._skill_loader, bus, run_id))
             runs_dir = child_runs_dir or self._runs_dir
+            spawn_tool = SpawnAgentTool(
+                provider=provider,
+                parent_bus=bus,
+                parent_run_id=run_id,
+                permission_manager=self._permission_manager,
+                max_steps=self._config.agent.max_steps,
+                task_registry=self._task_registry,
+                runs_dir=runs_dir,
+                session_id=session_id,
+                depth=0,
+            )
             if _ok("spawn_agent"):
+                registry.register(spawn_tool)
+            if _ok("skill"):
+                async def _fork_skill(
+                    skill: Skill, prompt: str, arguments: str
+                ) -> ToolResult:
+                    del arguments
+                    return await spawn_tool.invoke(
+                        {
+                            "description": f"skill:{skill.name}",
+                            "prompt": prompt,
+                            "run_in_background": False,
+                            "allowed_tools": skill.allowed_tools,
+                        }
+                    )
+
                 registry.register(
-                    SpawnAgentTool(
-                        provider=provider,
-                        parent_bus=bus,
-                        parent_run_id=run_id,
-                        permission_manager=self._permission_manager,
-                        max_steps=self._config.agent.max_steps,
-                        task_registry=self._task_registry,
-                        runs_dir=runs_dir,
-                        session_id=session_id,
-                        depth=0,
+                    SkillTool(
+                        self._skill_loader,
+                        bus,
+                        run_id,
+                        fork_executor=_fork_skill,
                     )
                 )
             if _ok("agent_result"):
                 registry.register(AgentResultTool(self._task_registry))
+            if _ok("cancel_agent"):
+                registry.register(AgentCancelTool(self._task_registry))
         if self._mcp_manager is not None:
             for mcp_tool in self._mcp_manager.get_tools():
                 if _ok(mcp_tool.name):

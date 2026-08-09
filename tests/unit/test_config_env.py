@@ -112,3 +112,26 @@ recall_max_chars = 2048
     assert config.memory.recall_top_k == 4
     assert config.memory.recall_min_score == 0.25
     assert config.memory.recall_max_chars == 2048
+
+
+def test_subagent_limits_load_from_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = tmp_path / "subagent.toml"
+    config_path.write_text(
+        """
+[subagent]
+max_concurrency = 2
+max_children_per_parent = 3
+state_dir = "/tmp/kama-subagents"
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("KAMA_CONFIG", str(config_path))
+
+    config = get_config()
+
+    assert config.subagent.max_concurrency == 2
+    assert config.subagent.max_children_per_parent == 3
+    assert config.subagent.state_dir == "/tmp/kama-subagents"

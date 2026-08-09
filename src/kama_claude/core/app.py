@@ -50,6 +50,7 @@ from kama_claude.core.permissions.storage import load_policy_file
 from kama_claude.core.runner import AgentRunner
 from kama_claude.core.runs import events_file, new_run_id
 from kama_claude.core.session import SessionManager, SessionStore
+from kama_claude.core.subagent import BackgroundTaskRegistry
 from kama_claude.core.trace.record import TraceRecord
 from kama_claude.core.trace.writer import TraceWriter
 from kama_claude.core.transport.ipc_broadcaster import IpcEventBroadcaster
@@ -74,6 +75,7 @@ class CoreApp:
         self._permission_manager: PermissionManager | None = None
         self._mcp_manager: McpServerManager | None = None
         self._memory_store: MemoryStore | None = None
+        self._task_registry: BackgroundTaskRegistry | None = None
 
     # 处理 core.ping 请求，返回服务版本、运行时长和接收时间
     async def _ping_handler(self, params: dict[str, Any]) -> PongResult:
@@ -275,6 +277,11 @@ class CoreApp:
         compact_provider = AnthropicProvider(self._config.llm.default_model)
         if self._config.memory.enabled:
             self._memory_store = MemoryStore(Path(self._config.memory.database))
+        self._task_registry = BackgroundTaskRegistry(
+            Path(self._config.subagent.state_dir),
+            max_concurrency=self._config.subagent.max_concurrency,
+            max_children_per_parent=self._config.subagent.max_children_per_parent,
+        )
 
         self._mcp_manager = McpServerManager(
             startup_timeout_s=self._config.mcp.startup_timeout_s,
@@ -293,6 +300,7 @@ class CoreApp:
                 permission_manager=self._permission_manager,
                 mcp_manager=self._mcp_manager,
                 memory_store=self._memory_store,
+                task_registry=self._task_registry,
             ),
             bus=self._bus,
             provider=compact_provider,
@@ -332,6 +340,8 @@ class CoreApp:
             run_task.cancel()
         if self._running_runs:
             await asyncio.gather(*self._running_runs, return_exceptions=True)
+        if self._task_registry is not None:
+            await self._task_registry.shutdown()
         if self._mcp_manager is not None:
             await self._mcp_manager.stop_all()
         await server.stop()

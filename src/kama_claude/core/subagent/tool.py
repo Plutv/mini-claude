@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from kama_claude.core.agents.loader import AgentProfile, AgentProfileLoader
 from kama_claude.core.bus.events import SubagentFinishedEvent, SubagentStartedEvent
@@ -43,6 +43,8 @@ class SpawnAgentParams(BaseModel):
     prompt: str
     run_in_background: bool = False
     subagent_type: str = ""
+    timeout_s: float = Field(default=300.0, gt=0, le=3600)
+    allowed_tools: list[str] = Field(default_factory=list)
 
 
 # 在隔离的冷启动上下文中派生子 agent，支持前台阻塞和后台并行两种模式
@@ -75,6 +77,12 @@ class SpawnAgentTool(BaseTool):
             "subagent_type": {
                 "type": "string",
                 "description": "Agent role profile (planner/executor/reviewer). Leave empty for default.",  # noqa: E501
+            },
+            "timeout_s": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 3600,
+                "description": "Maximum child execution time in seconds.",
             },
         },
         "required": ["description", "prompt"],
@@ -135,7 +143,12 @@ class SpawnAgentTool(BaseTool):
 
         child_bus.subscribe(_bridge)
 
-        child_registry = self._build_child_registry(child_bus, child_run_id, profile)
+        child_registry = self._build_child_registry(
+            child_bus,
+            child_run_id,
+            profile,
+            allowed_tools=p.allowed_tools or None,
+        )
         child_loop = AgentLoop(
             self._provider,
             child_registry,
@@ -157,12 +170,29 @@ class SpawnAgentTool(BaseTool):
         child_run_path.mkdir(parents=True, exist_ok=True)
 
         if p.run_in_background:
-            task: asyncio.Task[None] = asyncio.create_task(
-                self._run_background(
-                    child_loop, child_context, child_bus, child_run_path, child_run_id
+            try:
+                self._task_registry.spawn(
+                    run_id=child_run_id,
+                    parent_run_id=self._parent_run_id,
+                    session_id=self._session_id,
+                    description=p.description,
+                    depth=self._depth + 1,
+                    context=child_context,
+                    work=lambda: self._run_background(
+                        child_loop,
+                        child_context,
+                        child_bus,
+                        child_run_path,
+                        child_run_id,
+                    ),
+                    timeout_s=p.timeout_s,
                 )
-            )
-            self._task_registry.register(child_run_id, task, child_context)
+            except RuntimeError as exc:
+                return ToolResult(
+                    content=str(exc),
+                    is_error=True,
+                    error_type="runtime_error",
+                )
             return ToolResult(
                 content=(
                     f"Subagent started in background. run_id={child_run_id}. "
@@ -170,18 +200,23 @@ class SpawnAgentTool(BaseTool):
                 )
             )
 
-        async with EventWriter(child_run_path / "events.jsonl") as writer:
-            writer.subscribe(child_bus)
-            await child_loop.run(child_context)
-
-        await self._parent_bus.publish(
-            SubagentFinishedEvent(
-                run_id=child_run_id,
-                parent_run_id=self._parent_run_id,
-                status=child_context.status,
-                ts=_now(),
+        try:
+            async with asyncio.timeout(p.timeout_s):
+                async with EventWriter(child_run_path / "events.jsonl") as writer:
+                    writer.subscribe(child_bus)
+                    await child_loop.run(child_context)
+        except TimeoutError:
+            if not child_context.is_done():
+                child_context.mark_failed("subagent_timeout")
+        finally:
+            await self._parent_bus.publish(
+                SubagentFinishedEvent(
+                    run_id=child_run_id,
+                    parent_run_id=self._parent_run_id,
+                    status=child_context.status,
+                    ts=_now(),
+                )
             )
-        )
 
         if child_context.status == "success":
             return ToolResult(
@@ -205,17 +240,23 @@ class SpawnAgentTool(BaseTool):
         run_path: Path,
         run_id: str,
     ) -> None:
-        async with EventWriter(run_path / "events.jsonl") as writer:
-            writer.subscribe(bus)
-            await loop.run(context)
-        await self._parent_bus.publish(
-            SubagentFinishedEvent(
-                run_id=run_id,
-                parent_run_id=self._parent_run_id,
-                status=context.status,
-                ts=_now(),
+        try:
+            async with EventWriter(run_path / "events.jsonl") as writer:
+                writer.subscribe(bus)
+                await loop.run(context)
+        except asyncio.CancelledError:
+            if not context.is_done():
+                context.mark_failed("cancelled")
+            raise
+        finally:
+            await self._parent_bus.publish(
+                SubagentFinishedEvent(
+                    run_id=run_id,
+                    parent_run_id=self._parent_run_id,
+                    status=context.status,
+                    ts=_now(),
+                )
             )
-        )
 
     # 构造子 registry；基于角色配置过滤工具，深度允许时注册嵌套 SpawnAgentTool
     def _build_child_registry(
@@ -223,12 +264,16 @@ class SpawnAgentTool(BaseTool):
         child_bus: EventBus,
         child_run_id: str,
         profile: AgentProfile | None,
+        allowed_tools: list[str] | None = None,
     ) -> ToolRegistry:
         from kama_claude.core.task.manager import TaskManager
 
-        allowed: set[str] | None = (
-            set(profile.allowed_tools) if profile and profile.allowed_tools else None
-        )
+        profile_tools = set(profile.allowed_tools) if profile and profile.allowed_tools else None
+        requested_tools = set(allowed_tools) if allowed_tools else None
+        if profile_tools is not None and requested_tools is not None:
+            allowed = profile_tools & requested_tools
+        else:
+            allowed = profile_tools if profile_tools is not None else requested_tools
 
         def _allowed(name: str) -> bool:
             return allowed is None or name in allowed
@@ -270,12 +315,16 @@ class SpawnAgentTool(BaseTool):
                 registry.register(nested)
             if _allowed("agent_result"):
                 registry.register(AgentResultTool(self._task_registry))
+            if _allowed("cancel_agent"):
+                registry.register(AgentCancelTool(self._task_registry))
 
         return registry
 
 
 class AgentResultParams(BaseModel):
     run_id: str
+    wait: bool = True
+    timeout_s: float = Field(default=30.0, ge=0, le=300)
 
 
 # 查询后台 subagent 的执行状态和最终结果
@@ -292,6 +341,8 @@ class AgentResultTool(BaseTool):
                 "type": "string",
                 "description": "The run_id returned by spawn_agent(run_in_background=true)",
             },
+            "wait": {"type": "boolean", "description": "Wait briefly for completion."},
+            "timeout_s": {"type": "number", "minimum": 0, "maximum": 300},
         },
         "required": ["run_id"],
     }
@@ -304,25 +355,54 @@ class AgentResultTool(BaseTool):
     # 查询指定 run_id 的后台任务状态，返回结果或错误
     async def invoke(self, params: dict[str, object]) -> ToolResult:
         p = AgentResultParams.model_validate(params)
-        entry = self._task_registry.get(p.run_id)
-        if entry is None:
+        record = (
+            await self._task_registry.wait(p.run_id, p.timeout_s)
+            if p.wait
+            else self._task_registry.get_record(p.run_id)
+        )
+        if record is None:
             return ToolResult(
-                content=f"Unknown run_id: {p.run_id}. Only background subagents can be queried.",
+                content=f"Unknown run_id: {p.run_id}.",
                 is_error=True,
                 error_type="runtime_error",
             )
-        task, context = entry
-        if not task.done():
-            return ToolResult(content="still running")
-        if task.cancelled():
+        if record.status in {"pending", "running"}:
+            return ToolResult(content=f"still running status={record.status}")
+        if record.status in {"cancelled", "interrupted", "timed_out", "failed"}:
             return ToolResult(
-                content="Subagent was cancelled.", is_error=True, error_type="runtime_error"
-            )
-        exc = task.exception()
-        if exc is not None:
-            return ToolResult(
-                content=f"Subagent raised an exception: {exc}",
+                content=(
+                    f"Subagent {record.status}. reason={record.reason or 'unknown'} "
+                    f"result={record.result}"
+                ),
                 is_error=True,
                 error_type="runtime_error",
             )
-        return ToolResult(content=context.result or "Subagent completed with no text result.")
+        return ToolResult(content=record.result or "Subagent completed with no text result.")
+
+
+class AgentCancelParams(BaseModel):
+    run_id: str
+
+
+class AgentCancelTool(BaseTool):
+    name = "cancel_agent"
+    description = "Cancel a running background sub-agent by run_id."
+    params_model = AgentCancelParams
+    input_schema = {
+        "type": "object",
+        "properties": {"run_id": {"type": "string"}},
+        "required": ["run_id"],
+    }
+
+    def __init__(self, task_registry: BackgroundTaskRegistry) -> None:
+        self._task_registry = task_registry
+
+    async def invoke(self, params: dict[str, object]) -> ToolResult:
+        run_id = AgentCancelParams.model_validate(params).run_id
+        if not await self._task_registry.cancel(run_id):
+            return ToolResult(
+                content=f"Subagent {run_id} is not running.",
+                is_error=True,
+                error_type="runtime_error",
+            )
+        return ToolResult(content=f"Subagent {run_id} cancelled.")
