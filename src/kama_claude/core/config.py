@@ -79,6 +79,8 @@ class McpServerConfig:
 @dataclass
 class McpConfig:
     servers: list[McpServerConfig] = field(default_factory=list)
+    startup_timeout_s: float = 20.0
+    call_timeout_s: float = 30.0
 
 
 @dataclass
@@ -305,9 +307,19 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
         mcp = data["mcp"]
         if not isinstance(mcp, dict):
             raise SystemExit("Config error: [mcp] must be a table")
-        unknown_mcp: set[str] = set(mcp.keys()) - {"servers"}
+        unknown_mcp: set[str] = set(mcp.keys()) - {
+            "servers",
+            "startup_timeout_s",
+            "call_timeout_s",
+        }
         if unknown_mcp:
             raise SystemExit(f"Unknown [mcp] keys: {', '.join(sorted(unknown_mcp))}")
+        for key in ("startup_timeout_s", "call_timeout_s"):
+            if key in mcp:
+                value = mcp[key]
+                if not isinstance(value, (int, float)) or value <= 0:
+                    raise SystemExit(f"Config error: mcp.{key} must be a positive number")
+                setattr(config.mcp, key, float(value))
         servers_raw = mcp.get("servers", [])
         if not isinstance(servers_raw, list):
             raise SystemExit("Config error: mcp.servers must be an array of tables")

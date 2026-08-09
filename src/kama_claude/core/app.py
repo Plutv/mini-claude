@@ -276,7 +276,10 @@ class CoreApp:
         if self._config.memory.enabled:
             self._memory_store = MemoryStore(Path(self._config.memory.database))
 
-        self._mcp_manager = McpServerManager()
+        self._mcp_manager = McpServerManager(
+            startup_timeout_s=self._config.mcp.startup_timeout_s,
+            call_timeout_s=self._config.mcp.call_timeout_s,
+        )
         if self._config.mcp.servers:
             logger.info("mcp: starting %d server(s)", len(self._config.mcp.servers))
             await self._mcp_manager.start_all(self._config.mcp.servers)

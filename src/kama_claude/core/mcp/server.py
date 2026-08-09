@@ -1,65 +1,170 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+from dataclasses import dataclass, field
+from typing import Any
 
 from kama_claude.core.config import McpServerConfig
-from kama_claude.core.mcp.client import McpClient
+from kama_claude.core.mcp.client import McpClient, McpServerUnavailableError, McpToolDef
 from kama_claude.core.mcp.tool import McpTool
 from kama_claude.core.tools.registry import ToolRegistry
 
 log = logging.getLogger(__name__)
 
 
-# 管理所有 MCP server 连接的生命周期：启动、工具发现、注册、关闭
-class McpServerManager:
-    def __init__(self) -> None:
-        self._clients: dict[str, McpClient] = {}
-        self._tools: list[McpTool] = []
+@dataclass
+class McpServerRuntime:
+    config: McpServerConfig
+    startup_timeout_s: float = 20.0
+    call_timeout_s: float = 30.0
+    status: str = "stopped"
+    restart_count: int = 0
+    last_error: str | None = None
+    tool_defs: list[McpToolDef] = field(default_factory=list)
+    _client: McpClient | None = None
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
-    # 依次连接每个 MCP server，发现工具后缓存供后续 registry 使用；失败时记录日志并跳过
-    async def start_all(self, servers: list[McpServerConfig]) -> None:
-        for cfg in servers:
+    async def start(self) -> list[McpToolDef]:
+        async with self._lock:
+            if self._client is not None and self._client.connected:
+                return list(self.tool_defs)
+            self.status = "starting"
+            client = McpClient(call_timeout_s=self.call_timeout_s)
             try:
-                client = await self._connect(cfg)
-                tool_defs = await client.list_tools()
-                for tool_def in tool_defs:
-                    self._tools.append(McpTool(client, cfg.name, tool_def))
-                self._clients[cfg.name] = client
-                log.info(
-                    "mcp: server '%s' connected, %d tool(s) discovered",
-                    cfg.name, len(tool_defs),
-                )
-            except Exception:
-                log.exception("mcp: server '%s' failed to start, skipping", cfg.name)
+                async with asyncio.timeout(self.startup_timeout_s):
+                    if self.config.transport == "stdio":
+                        if not self.config.command:
+                            raise ValueError(
+                                f"mcp server '{self.config.name}': stdio requires command"
+                            )
+                        await client.connect_stdio(
+                            self.config.command,
+                            self.config.args,
+                            self.config.env or None,
+                        )
+                    elif self.config.transport == "tcp":
+                        await client.connect_tcp(self.config.host, self.config.port)
+                    else:
+                        raise ValueError(
+                            f"mcp server '{self.config.name}': unknown transport "
+                            f"'{self.config.transport}'"
+                        )
+                    tool_defs = await client.list_tools()
+            except Exception as exc:
+                await client.close()
+                self.status = "failed"
+                self.last_error = str(exc)
+                raise
+            old_client = self._client
+            self._client = client
+            self.tool_defs = tool_defs
+            self.status = "healthy"
+            self.last_error = None
+            if old_client is not None:
+                await old_client.close()
+            return list(tool_defs)
 
-    # 将所有已发现的 MCP 工具注册到指定 registry
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
+        if self._client is None or not self._client.connected:
+            self.restart_count += 1
+            await self.start()
+        assert self._client is not None
+        try:
+            return await self._client.call_tool(name, arguments)
+        except McpServerUnavailableError as exc:
+            self.status = "degraded"
+            self.last_error = str(exc)
+            self.restart_count += 1
+            failed_client = self._client
+            self._client = None
+            if failed_client is not None:
+                await failed_client.close()
+            try:
+                await self.start()
+            except Exception:
+                log.warning("mcp: restart failed server=%s", self.config.name, exc_info=True)
+            raise McpServerUnavailableError(
+                f"{exc}; connection recovered for future calls but current call was not replayed"
+            ) from exc
+
+    async def stop(self) -> None:
+        async with self._lock:
+            client = self._client
+            self._client = None
+            if client is not None:
+                await client.close()
+            self.status = "stopped"
+
+    def health(self) -> dict[str, object]:
+        return {
+            "name": self.config.name,
+            "transport": self.config.transport,
+            "status": self.status,
+            "restart_count": self.restart_count,
+            "last_error": self.last_error,
+            "tool_count": len(self.tool_defs),
+        }
+
+
+class McpServerManager:
+    def __init__(self, *, startup_timeout_s: float = 20.0, call_timeout_s: float = 30.0) -> None:
+        self._servers: dict[str, McpServerRuntime] = {}
+        self._tools: list[McpTool] = []
+        self._startup_timeout_s = startup_timeout_s
+        self._call_timeout_s = call_timeout_s
+
+    async def start_all(self, servers: list[McpServerConfig]) -> None:
+        if len({config.name for config in servers}) != len(servers):
+            raise ValueError("MCP server names must be unique")
+        runtimes = [
+            McpServerRuntime(
+                config,
+                startup_timeout_s=self._startup_timeout_s,
+                call_timeout_s=self._call_timeout_s,
+            )
+            for config in servers
+        ]
+        self._servers = {runtime.config.name: runtime for runtime in runtimes}
+        results = await asyncio.gather(
+            *(runtime.start() for runtime in runtimes),
+            return_exceptions=True,
+        )
+        self._tools.clear()
+        for runtime, result in zip(runtimes, results, strict=True):
+            if isinstance(result, BaseException):
+                log.error(
+                    "mcp: server '%s' failed to start: %s",
+                    runtime.config.name,
+                    result,
+                )
+                continue
+            self._tools.extend(
+                McpTool(runtime, runtime.config.name, tool_def) for tool_def in result
+            )
+            log.info(
+                "mcp: server '%s' connected, %d tool(s) discovered",
+                runtime.config.name,
+                len(result),
+            )
+
     def register_tools(self, registry: ToolRegistry) -> None:
         for tool in self._tools:
             registry.register(tool)
 
-    # 返回已发现的 MCP 工具列表（用于 runner 每次 run 时注入新 registry）
     def get_tools(self) -> list[McpTool]:
         return list(self._tools)
 
-    # 关闭所有 MCP 连接并终止 stdio 子进程
-    async def stop_all(self) -> None:
-        for name, client in list(self._clients.items()):
-            try:
-                await client.close()
-                log.info("mcp: server '%s' closed", name)
-            except Exception:
-                log.warning("mcp: error closing server '%s'", name)
-        self._clients.clear()
+    def health(self) -> list[dict[str, object]]:
+        return [runtime.health() for runtime in self._servers.values()]
 
-    # 根据 transport 类型建立连接
-    async def _connect(self, cfg: McpServerConfig) -> McpClient:
-        client = McpClient()
-        if cfg.transport == "stdio":
-            if not cfg.command:
-                raise ValueError(f"mcp server '{cfg.name}': stdio transport requires 'command'")
-            await client.connect_stdio(cfg.command, cfg.args, cfg.env or None)
-        elif cfg.transport == "tcp":
-            await client.connect_tcp(cfg.host, cfg.port)
-        else:
-            raise ValueError(f"mcp server '{cfg.name}': unknown transport '{cfg.transport}'")
-        return client
+    async def stop_all(self) -> None:
+        results = await asyncio.gather(
+            *(runtime.stop() for runtime in self._servers.values()),
+            return_exceptions=True,
+        )
+        for runtime, result in zip(self._servers.values(), results, strict=True):
+            if isinstance(result, BaseException):
+                log.warning("mcp: error closing server '%s': %s", runtime.config.name, result)
+        self._servers.clear()
+        self._tools.clear()
