@@ -1,0 +1,9 @@
+id = "async-pending-cleanup"
+title = "修复异步请求超时后的状态泄漏"
+language = "python"
+difficulty = "medium"
+category = "asyncio"
+split = "dev"
+max_steps = 9
+time_limit_s = 30
+tags = ["asyncio", "timeout", "cancellation", "resource-cleanup"]

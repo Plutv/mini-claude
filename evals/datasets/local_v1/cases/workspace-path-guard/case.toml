@@ -1,0 +1,9 @@
+id = "workspace-path-guard"
+title = "阻止工作区路径穿越"
+language = "python"
+difficulty = "medium"
+category = "security"
+split = "holdout"
+max_steps = 8
+time_limit_s = 30
+tags = ["path-traversal", "filesystem", "security"]

@@ -42,6 +42,7 @@ dev = [
 src = ["src"]            # 分析路径，便于识别第一方代码
 line-length = 100        # 行长上限
 target-version = "py312" # 语法/规则按 Python 3.12
+extend-exclude = ["evals/datasets"] # Eval seeds intentionally contain defects
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"] # pycodestyle 错误、Pyflakes、isort、pyupgrade

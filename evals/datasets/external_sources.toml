@@ -1,0 +1,31 @@
+[[sources]]
+name = "QuixBugs"
+url = "https://github.com/jkoppel/QuixBugs"
+license = "MIT"
+status = "recommended_next"
+purpose = "轻量Python/Java程序修复与跨语言对照"
+selection = "先选择10个默认pytest可快速完成、无慢测试的任务；固定仓库commit后记录任务名"
+
+[[sources]]
+name = "Defects4J"
+url = "https://github.com/rjust/defects4j"
+license = "MIT"
+status = "planned"
+purpose = "真实Java缺陷、构建与回归测试"
+selection = "从Cli、Codec、Csv、Gson中选择5个Java 11可稳定复现的active bug"
+
+[[sources]]
+name = "GitBug-Java"
+url = "https://github.com/gitbugactions/gitbug-java"
+license = "check_per_project"
+status = "planned"
+purpose = "较新的真实Java缺陷，降低老旧工程偏差"
+selection = "只纳入容器可重复、测试耗时低于10分钟且许可证明确的任务"
+
+[[sources]]
+name = "SWE-bench Verified"
+url = "https://www.swebench.com/"
+license = "dataset_and_upstream_repo_specific"
+status = "final_validation_only"
+purpose = "真实GitHub Issue端到端修复能力"
+selection = "固定harness版本，从500个Verified实例中抽取5到10个依赖镜像可用、成本可控的任务"

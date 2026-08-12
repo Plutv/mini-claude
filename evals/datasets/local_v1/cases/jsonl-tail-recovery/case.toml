@@ -1,0 +1,9 @@
+id = "jsonl-tail-recovery"
+title = "恢复被截断的JSONL会话尾部"
+language = "python"
+difficulty = "easy"
+category = "persistence"
+split = "dev"
+max_steps = 7
+time_limit_s = 30
+tags = ["jsonl", "crash-recovery", "persistence"]

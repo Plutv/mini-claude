@@ -1,0 +1,9 @@
+id = "idempotent-retry"
+title = "修复副作用操作的错误重试"
+language = "python"
+difficulty = "medium"
+category = "reliability"
+split = "dev"
+max_steps = 9
+time_limit_s = 30
+tags = ["retry", "idempotency", "backoff", "exceptions"]

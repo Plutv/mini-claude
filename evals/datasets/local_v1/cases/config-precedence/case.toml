@@ -1,0 +1,9 @@
+id = "config-precedence"
+title = "修复多来源配置优先级"
+language = "python"
+difficulty = "easy"
+category = "configuration"
+split = "dev"
+max_steps = 6
+time_limit_s = 30
+tags = ["config", "environment", "immutability"]

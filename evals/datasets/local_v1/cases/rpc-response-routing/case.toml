@@ -1,0 +1,9 @@
+id = "rpc-response-routing"
+title = "修复单连接并发RPC响应错配"
+language = "python"
+difficulty = "medium"
+category = "rpc"
+split = "holdout"
+max_steps = 10
+time_limit_s = 30
+tags = ["rpc", "future", "multiplexing", "event-push"]
