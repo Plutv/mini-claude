@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import sys
 from typing import Any
 
@@ -13,6 +14,20 @@ _DECISION_MAP: dict[str, str] = {
     "n": "deny_once",
     "d": "always_deny",
 }
+
+
+# Importing readline enables cursor movement and command-line editing for
+# Python's built-in input() on Unix terminals. Keep it optional so the CLI can
+# still start on platforms where readline is unavailable.
+try:
+    importlib.import_module("readline")
+except ImportError:
+    pass
+
+
+def _contains_surrogate(value: str) -> bool:
+    """Return whether terminal input contains non-JSON Unicode surrogates."""
+    return any(0xD800 <= ord(char) <= 0xDFFF for char in value)
 
 
 class ChatPrinter:
@@ -111,6 +126,13 @@ async def _chat_async(
                 break
             content = line.strip()
             if not content:
+                continue
+            if _contains_surrogate(content):
+                print(
+                    "error: input contains invalid terminal bytes; "
+                    "please retype or paste the message",
+                    file=sys.stderr,
+                )
                 continue
 
             # 有待审批的权限请求时，将用户输入解释为决策而非聊天消息
