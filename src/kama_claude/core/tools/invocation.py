@@ -46,20 +46,33 @@ async def _fail(
     elapsed_ms: int,
     *,
     attempt: int = 1,
+    artifact_store: ToolArtifactStore | None = None,
+    artifact_threshold: int | None = None,
 ) -> ToolResult:
+    result = ToolResult(
+        content=error_message,
+        is_error=True,
+        error_type=error_class,
+    )
+    if artifact_store is not None:
+        result = await artifact_store.externalize(
+            tool_call,
+            result,
+            threshold=artifact_threshold,
+        )
     await bus.publish(
         ToolCallFailedEvent(
             run_id=run_id,
             tool_use_id=tool_call.id,
             tool_name=tool_call.name,
             error_class=error_class,
-            error_message=error_message,
+            error_message=result.content,
             elapsed_ms=elapsed_ms,
             attempt=attempt,
             ts=_now(),
         )
     )
-    return ToolResult(content=error_message, is_error=True, error_type=error_class)
+    return result
 
 
 # 校验参数、检查权限、限时调用工具、发布进度事件，失败时指数退避重试，返回 ToolResult（不抛异常）
@@ -238,6 +251,8 @@ async def invoke_tool(
             bus, run_id, tool_call,
             error_class, error_message, ms,
             attempt=attempt,
+            artifact_store=artifact_store,
+            artifact_threshold=artifact_threshold,
         )
 
     # unreachable, but keeps mypy happy

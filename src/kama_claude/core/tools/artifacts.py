@@ -37,7 +37,7 @@ class ToolArtifactStore:
         threshold: int | None = None,
     ) -> ToolResult:
         effective_threshold = self._threshold if threshold is None else threshold
-        if result.is_error or len(result.content.encode("utf-8")) <= effective_threshold:
+        if len(result.content.encode("utf-8")) <= effective_threshold:
             return result
         return await asyncio.to_thread(self._write, tool_call, result)
 
@@ -60,6 +60,8 @@ class ToolArtifactStore:
                     "tool_use_id": tool_call.id,
                     "bytes": len(encoded),
                     "sha256": digest,
+                    "is_error": result.is_error,
+                    "error_type": result.error_type,
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -73,12 +75,17 @@ class ToolArtifactStore:
         if len(result.content) > head_chars + tail_chars:
             suffix = result.content[-tail_chars:] if tail_chars else ""
             preview += "\n... [artifact content omitted] ...\n" + suffix
+        result_kind = "error" if result.is_error else "result"
         reference = (
             f"{preview}\n\n"
-            "[large tool result stored as artifact]\n"
+            f"[large tool {result_kind} stored as artifact]\n"
             f"path: {artifact.resolve()}\n"
             f"bytes: {len(encoded)}\n"
             f"sha256: {digest}\n"
             "Use read_file with the artifact path if more detail is required."
         )
-        return ToolResult(content=reference)
+        return ToolResult(
+            content=reference,
+            is_error=result.is_error,
+            error_type=result.error_type,
+        )

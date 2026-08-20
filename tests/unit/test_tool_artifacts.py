@@ -24,6 +24,22 @@ class _LargeOutputTool(BaseTool):
         return ToolResult(content=self._content)
 
 
+class _LargeErrorTool(BaseTool):
+    name = "large_error"
+    description = "Return a large deterministic error"
+    input_schema: dict[str, object] = {"type": "object", "properties": {}}
+
+    def __init__(self, content: str) -> None:
+        self._content = content
+
+    async def invoke(self, params: dict[str, object]) -> ToolResult:
+        return ToolResult(
+            content=self._content,
+            is_error=True,
+            error_type="schema_error",
+        )
+
+
 @pytest.mark.asyncio
 async def test_large_tool_output_is_persisted_and_replaced_by_reference(tmp_path) -> None:
     original = "header\n" + ("x" * 10_000) + "\nfooter"
@@ -68,6 +84,44 @@ async def test_small_tool_output_stays_inline(tmp_path) -> None:
 
     assert result.content == "small"
     assert not (tmp_path / "artifacts").exists()
+
+
+@pytest.mark.asyncio
+async def test_large_tool_error_is_externalized_without_losing_error_semantics(
+    tmp_path,
+) -> None:
+    original = "Validation failed\n" + ("stack frame\n" * 2_000) + "root cause"
+    registry = ToolRegistry()
+    registry.register(_LargeErrorTool(original))
+    store = ToolArtifactStore(tmp_path / "artifacts", threshold=1_024)
+    call = ToolCallBlock(id="error/1", name="large_error", input={})
+    events = []
+    bus = EventBus()
+
+    async def collect(event) -> None:
+        events.append(event)
+
+    bus.subscribe(collect)
+    result = await invoke_tool(
+        registry,
+        call,
+        bus,
+        "run-error",
+        artifact_store=store,
+    )
+
+    artifact = tmp_path / "artifacts" / "large_error-error_1.txt"
+    assert artifact.read_text(encoding="utf-8") == original
+    assert result.is_error is True
+    assert result.error_type == "schema_error"
+    assert "[large tool error stored as artifact]" in result.content
+    assert str(artifact.resolve()) in result.content
+
+    metadata = json.loads(artifact.with_suffix(".json").read_text(encoding="utf-8"))
+    assert metadata["is_error"] is True
+    assert metadata["error_type"] == "schema_error"
+    failed = next(event for event in events if event.type == "tool.call_failed")
+    assert failed.error_message == result.content
 
 
 @pytest.mark.asyncio
