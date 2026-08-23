@@ -147,6 +147,21 @@ def test_invalid_skill_metadata_is_rejected(tmp_path: Path) -> None:
         _parse_skill_file(skill_file)
 
 
+def test_project_debug_fix_skill_is_parameterized_and_tool_scoped() -> None:
+    loader = SkillLoader(project_dir=Path(".kama/skills"))
+
+    skill = loader.resolve("debug-fix")
+
+    assert skill is not None
+    assert skill.source == "project"
+    assert skill.context == "inline"
+    assert skill.allowed_tools == ["read_file", "list_dir", "bash", "write_file"]
+    rendered = loader.render_prompt(skill, "pytest tests/unit/test_example.py -q")
+    assert "$ARGUMENTS" not in rendered
+    assert "pytest tests/unit/test_example.py -q" in rendered
+    assert str(skill.skill_dir) in rendered
+
+
 def test_catalog_includes_when_to_use_and_invocation_mode(tmp_path: Path) -> None:
     project = tmp_path / "skills"
     project.mkdir()

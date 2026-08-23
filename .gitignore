@@ -13,6 +13,7 @@ build/
 .vscode/
 uv.lock
 .idea/
+.workbuddy-ai/
 .DS_Store
 *.log
 workspace/
