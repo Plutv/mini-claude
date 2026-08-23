@@ -108,6 +108,8 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
 |---|---|---|
 | `type` | `string` | no |
 | `goal` | `string` | yes |
+| `subscribe_topics` | `array` | no |
+| `workspace` | `string` | no |
 
 ```json
 {
@@ -120,6 +122,18 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
     },
     "goal": {
       "title": "Goal",
+      "type": "string"
+    },
+    "subscribe_topics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Subscribe Topics",
+      "type": "array"
+    },
+    "workspace": {
+      "default": "",
+      "title": "Workspace",
       "type": "string"
     }
   },
@@ -149,6 +163,7 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
 | Field | Type | Required |
 |---|---|---|
 | `run_id` | `string` | yes |
+| `subscription_id` | `string | null` | no |
 
 ```json
 {
@@ -156,6 +171,18 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
     "run_id": {
       "title": "Run Id",
       "type": "string"
+    },
+    "subscription_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Subscription Id"
     }
   },
   "required": [
@@ -297,6 +324,7 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
 | `type` | `string` | no |
 | `mode` | `string` | no |
 | `title` | `string` | no |
+| `workspace` | `string` | no |
 
 ```json
 {
@@ -319,6 +347,11 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
     "title": {
       "default": "",
       "title": "Title",
+      "type": "string"
+    },
+    "workspace": {
+      "default": "",
+      "title": "Workspace",
       "type": "string"
     }
   },
@@ -347,6 +380,7 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
 |---|---|---|
 | `session_id` | `string` | yes |
 | `status` | `string` | yes |
+| `workspace` | `string` | yes |
 
 ```json
 {
@@ -358,16 +392,23 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
     "status": {
       "enum": [
         "active",
+        "running",
         "waiting_for_input",
+        "interrupted",
         "closed"
       ],
       "title": "Status",
+      "type": "string"
+    },
+    "workspace": {
+      "title": "Workspace",
       "type": "string"
     }
   },
   "required": [
     "session_id",
-    "status"
+    "status",
+    "workspace"
   ],
   "title": "SessionCreateResult",
   "type": "object"
@@ -566,7 +607,9 @@ All commands are sent as JSON-RPC 2.0 requests. The `type` field inside `params`
     "status": {
       "enum": [
         "active",
+        "running",
         "waiting_for_input",
+        "interrupted",
         "closed"
       ],
       "title": "Status",
