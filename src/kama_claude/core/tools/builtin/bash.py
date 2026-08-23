@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
+from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,6 +42,18 @@ class BashTool(BaseTool):
         "required": ["command"],
     }
 
+    def __init__(self, workspace: Path | None = None) -> None:
+        self._workspace = workspace.expanduser().resolve() if workspace is not None else None
+
+    @staticmethod
+    async def _kill_process_group(proc: asyncio.subprocess.Process) -> None:
+        if proc.returncode is None:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        await proc.communicate()
+
     # 在子进程中执行 shell 命令，合并 stdout/stderr，超时或非零退出码时返回错误
     async def invoke(self, params: dict[str, object]) -> ToolResult:
         p = BashParams.model_validate(params)
@@ -50,19 +65,23 @@ class BashTool(BaseTool):
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
+                cwd=self._workspace,
+                start_new_session=True,
             )
             try:
                 stdout_bytes, _ = await asyncio.wait_for(
                     proc.communicate(), timeout=timeout
                 )
             except TimeoutError:
-                proc.kill()
-                await proc.communicate()
+                await self._kill_process_group(proc)
                 return ToolResult(
                     content=f"[timeout after {timeout}s]",
                     is_error=True,
                     error_type="timeout",
                 )
+            except asyncio.CancelledError:
+                await self._kill_process_group(proc)
+                raise
         except Exception as exc:
             return ToolResult(content=str(exc), is_error=True, error_type="runtime_error")
 

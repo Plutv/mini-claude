@@ -138,6 +138,31 @@ async def test_manager_rebuilds_index_and_marks_crashed_run_interrupted(
     assert store.read_meta(crashed.id).status == "interrupted"
 
 
+async def test_manager_migrates_legacy_session_to_current_workspace(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = SessionStore(tmp_path / "sessions")
+    legacy = Session(
+        id="sess-legacy",
+        mode="chat",
+        status="waiting_for_input",
+        title="legacy",
+        created_at="2026-01-01T00:00:00+00:00",
+        updated_at="2026-01-01T00:00:00+00:00",
+    )
+    store.write_meta(legacy)
+    monkeypatch.chdir(workspace)
+
+    manager = SessionManager(store, lambda: _Runner(), EventBus())  # type: ignore[arg-type]
+
+    restored = await manager.get(legacy.id)
+    assert restored.workspace == str(workspace.resolve())
+    assert store.read_meta(legacy.id).workspace == str(workspace.resolve())
+
+
 async def test_resume_reopens_closed_chat_and_keeps_history(tmp_path: Path) -> None:
     events: list[object] = []
     bus = EventBus()

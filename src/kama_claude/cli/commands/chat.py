@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import sys
+from pathlib import Path
 from typing import Any
 
 from kama_claude.core.config import KamaConfig
@@ -115,7 +116,10 @@ async def _chat_async(
             session_id = str(resumed["session"]["session_id"])
             print(f"[resumed session: {session_id}, messages={len(resumed['messages'])}]")
         else:
-            created = await client.send_command("session.create", {"mode": "chat"})
+            created = await client.send_command(
+                "session.create",
+                {"mode": "chat", "workspace": str(Path.cwd().resolve())},
+            )
             session_id = str(created["session_id"])
             print(f"[session: {session_id}]")
 

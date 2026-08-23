@@ -71,6 +71,27 @@ async def test_write_file_creates_parent_dirs(tmp_path: Path) -> None:
     assert target.exists()
 
 
+@pytest.mark.asyncio
+async def test_write_file_replace_failure_preserves_original(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "out.txt"
+    target.write_text("old", encoding="utf-8")
+
+    def fail_replace(source: Path, destination: Path) -> None:
+        del source, destination
+        raise OSError("injected replace failure")
+
+    monkeypatch.setattr("kama_claude.core.tools.builtin.write_file.os.replace", fail_replace)
+
+    with pytest.raises(OSError, match="injected replace failure"):
+        await WriteFileTool().invoke({"path": str(target), "content": "new"})
+
+    assert target.read_text(encoding="utf-8") == "old"
+    assert not list(tmp_path.glob(".*.tmp"))
+
+
 # 功能：验证 write_file 拒绝包含 .. 的路径并抛出 PermissionError
 # 设计：.. 路径遍历与 read_file 遵循相同规则，用相同的断言模式保持一致性
 @pytest.mark.asyncio

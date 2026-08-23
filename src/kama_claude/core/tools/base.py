@@ -19,7 +19,9 @@ class BaseTool(ABC):
     description: str
     input_schema: dict[str, object]
     params_model: type[BaseModel] | None = None
-    # Only tools without side effects may opt in to concurrent execution.
+    # Planning safety and concurrency are different contracts. A read-only
+    # remote tool may still require serialized access to its server.
+    read_only: bool = False
     parallel_safe: bool = False
 
     # 执行工具调用，返回结果或错误

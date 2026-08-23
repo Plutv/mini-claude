@@ -88,12 +88,12 @@ class PlanController:
     def guard(self, tool: BaseTool, *, consume_action: bool = False) -> str | None:
         if not self._enabled or tool.name in self.CONTROL_TOOLS:
             return None
-        if self.state.mode == "plan" and not tool.parallel_safe:
+        if self.state.mode == "plan" and not tool.read_only:
             return (
                 f"tool {tool.name!r} is blocked in plan mode; only read-only tools are "
                 "allowed until request_execution is approved"
             )
-        if self.state.mode == "execute" and not tool.parallel_safe and consume_action:
+        if self.state.mode == "execute" and not tool.read_only and consume_action:
             if self.state.executed_actions >= self._max_actions:
                 return f"execution action budget exceeded ({self._max_actions})"
             self.state.executed_actions += 1

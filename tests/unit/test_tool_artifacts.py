@@ -64,6 +64,7 @@ async def test_large_tool_output_is_persisted_and_replaced_by_reference(tmp_path
     assert artifacts[0].read_text(encoding="utf-8") == original
     assert len(result.content) < len(original)
     assert "[large tool result stored as artifact]" in result.content
+    assert "Use read_artifact" in result.content
     assert str(artifacts[0].resolve()) in result.content
     metadata = json.loads(artifacts[0].with_suffix(".json").read_text(encoding="utf-8"))
     assert metadata["bytes"] == len(original.encode("utf-8"))

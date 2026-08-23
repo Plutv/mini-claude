@@ -155,7 +155,15 @@ def test_project_debug_fix_skill_is_parameterized_and_tool_scoped() -> None:
     assert skill is not None
     assert skill.source == "project"
     assert skill.context == "inline"
-    assert skill.allowed_tools == ["read_file", "list_dir", "bash", "write_file"]
+    assert skill.allowed_tools == [
+        "search_text",
+        "read_file",
+        "read_artifact",
+        "list_dir",
+        "bash",
+        "edit_file",
+        "write_file",
+    ]
     rendered = loader.render_prompt(skill, "pytest tests/unit/test_example.py -q")
     assert "$ARGUMENTS" not in rendered
     assert "pytest tests/unit/test_example.py -q" in rendered

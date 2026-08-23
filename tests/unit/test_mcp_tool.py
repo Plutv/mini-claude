@@ -81,4 +81,5 @@ def test_read_only_annotation_enables_safe_parallelism() -> None:
         McpToolDef(name="read", description="read", read_only_hint=True),
     )
 
-    assert tool.parallel_safe is True
+    assert tool.read_only is True
+    assert tool.parallel_safe is False

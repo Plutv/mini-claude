@@ -21,6 +21,7 @@ class _ReadTool(BaseTool):
     name = "read"
     description = "read"
     input_schema = {"type": "object", "properties": {}}
+    read_only = True
     parallel_safe = True
 
     async def invoke(self, params: dict[str, object]) -> ToolResult:
@@ -34,6 +35,11 @@ class _WriteTool(BaseTool):
 
     async def invoke(self, params: dict[str, object]) -> ToolResult:
         return ToolResult(content="changed")
+
+
+class _SerializedReadTool(_ReadTool):
+    name = "serialized_read"
+    parallel_safe = False
 
 
 def _call(name: str, call_id: str = "tool-1") -> ToolCallBlock:
@@ -58,6 +64,26 @@ async def test_plan_mode_blocks_mutations_but_allows_reads(tmp_path: Path) -> No
     assert read.content == "observed"
     assert write.is_error is True
     assert write.error_type == "plan_mode_denied"
+
+
+async def test_plan_mode_uses_read_only_contract_not_concurrency_hint(
+    tmp_path: Path,
+) -> None:
+    controller = PlanController(tmp_path / "plan.json")
+    controller.enter("inspect a serialized remote service")
+    registry = ToolRegistry()
+    registry.register(_SerializedReadTool())
+
+    result = await invoke_tool(
+        registry,
+        _call("serialized_read"),
+        EventBus(),
+        "run",
+        plan_controller=controller,
+    )
+
+    assert result.content == "observed"
+    assert controller.state.executed_actions == 0
 
 
 async def test_plan_is_persisted_and_requires_non_empty_plan(tmp_path: Path) -> None:

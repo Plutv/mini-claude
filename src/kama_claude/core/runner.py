@@ -37,9 +37,12 @@ from kama_claude.core.tools.artifacts import ToolArtifactStore
 from kama_claude.core.tools.base import ToolResult
 from kama_claude.core.tools.builtin import (
     BashTool,
+    EditFileTool,
     ListDirTool,
     NoteSaveTool,
+    ReadArtifactTool,
     ReadFileTool,
+    SearchTextTool,
     TaskCreateTool,
     TaskGetTool,
     TaskListTool,
@@ -113,6 +116,8 @@ class AgentRunner:
         memory_store: MemoryStore | None = None,
         project_scope: str = "",
         plan_controller: PlanController | None = None,
+        workspace: Path | None = None,
+        artifact_store: ToolArtifactStore | None = None,
     ) -> ToolRegistry:
         allowed: set[str] | None = set(tool_whitelist) if tool_whitelist else None
 
@@ -120,6 +125,8 @@ class AgentRunner:
             return allowed is None or name in allowed
 
         registry = ToolRegistry()
+        if artifact_store is not None and _ok("read_artifact"):
+            registry.register(ReadArtifactTool(artifact_store.directory))
         if plan_controller is not None:
             for plan_tool in (
                 EnterPlanModeTool(plan_controller),
@@ -129,10 +136,12 @@ class AgentRunner:
                 if _ok(plan_tool.name):
                     registry.register(plan_tool)
         for t in [
-            ReadFileTool(file_versions),
-            BashTool(),
-            WriteFileTool(file_versions),
-            ListDirTool(),
+            ReadFileTool(file_versions, workspace),
+            SearchTextTool(workspace),
+            BashTool(workspace),
+            WriteFileTool(file_versions, workspace),
+            EditFileTool(file_versions, workspace),
+            ListDirTool(workspace),
         ]:
             if _ok(t.name):
                 registry.register(t)
@@ -165,6 +174,7 @@ class AgentRunner:
                 task_registry=self._task_registry,
                 runs_dir=runs_dir,
                 session_id=session_id,
+                workspace=workspace,
                 depth=0,
             )
             if _ok("spawn_agent"):
@@ -227,9 +237,15 @@ class AgentRunner:
             notes = ""
         run_path.mkdir(parents=True, exist_ok=True)
 
+        workspace = (
+            Path(session.workspace).expanduser().resolve()
+            if session is not None and session.workspace
+            else Path.cwd().resolve()
+        )
+
         global_ctx = load_context_file(Path("~/.kama/context.md").expanduser())
-        project_ctx = load_context_file(Path(".kama/context.md"))
-        project_scope = project_memory_scope(Path.cwd())
+        project_ctx = load_context_file(workspace / ".kama" / "context.md")
+        project_scope = project_memory_scope(workspace)
         memory_store = self._memory_store
         recalled_memories = ""
         if self._config.memory.enabled and memory_store is not None:
@@ -313,6 +329,8 @@ class AgentRunner:
                     memory_store=memory_store,
                     project_scope=project_scope,
                     plan_controller=plan_controller,
+                    workspace=workspace,
+                    artifact_store=artifact_store,
                 )
                 compactor = Compactor(bus, session_dir, session_id_str)
                 context_engine = ContextEngine(

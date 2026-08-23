@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from kama_claude.core.tools.base import BaseTool, ToolResult
+from kama_claude.core.tools.workspace import Workspace
 
 _MAX_DEPTH = 4
 _MAX_ENTRIES = 200
@@ -17,6 +19,8 @@ class ListDirParams(BaseModel):
 
 
 class ListDirTool(BaseTool):
+    read_only = True
+    parallel_safe = True
     params_model = ListDirParams
     name = "list_dir"
     description = (
@@ -40,16 +44,16 @@ class ListDirTool(BaseTool):
         "required": [],
     }
 
+    def __init__(self, workspace: Path | None = None) -> None:
+        self._workspace = Workspace(workspace)
+
     # 以树状格式列出目录内容，深度和条数有上限
     async def invoke(self, params: dict[str, object]) -> ToolResult:
         p = ListDirParams.model_validate(params)
         path_str = p.path
         max_depth = p.max_depth
 
-        if ".." in Path(path_str).parts:
-            raise PermissionError(f"path traversal not allowed: {path_str}")
-
-        root = Path(path_str)
+        root = self._workspace.resolve(path_str)
         if not root.exists():
             raise FileNotFoundError(f"no such directory: {path_str}")
         if not root.is_dir():
@@ -75,5 +79,5 @@ class ListDirTool(BaseTool):
                     extension = "    " if i == len(entries) - 1 else "│   "
                     _walk(entry, depth + 1, prefix + extension)
 
-        _walk(root, 1, "")
+        await asyncio.to_thread(_walk, root, 1, "")
         return ToolResult(content="\n".join(lines))

@@ -107,7 +107,11 @@ class CoreApp:
     async def _agent_run_handler(self, params: dict[str, Any]) -> AgentRunResult:
         assert self._sessions is not None
         cmd = AgentRunCommand.model_validate(params)
-        session = await self._sessions.create(mode="one_shot", title=cmd.goal[:40])
+        session = await self._sessions.create(
+            mode="one_shot",
+            title=cmd.goal[:40],
+            workspace=cmd.workspace,
+        )
         run_id = new_run_id()
         subscription_id: str | None = None
         if cmd.subscribe_topics:
@@ -126,8 +130,16 @@ class CoreApp:
     async def _session_create_handler(self, params: dict[str, Any]) -> SessionCreateResult:
         assert self._sessions is not None
         cmd = SessionCreateCommand.model_validate(params)
-        session = await self._sessions.create(mode=cmd.mode, title=cmd.title)
-        return SessionCreateResult(session_id=session.id, status=session.status)
+        session = await self._sessions.create(
+            mode=cmd.mode,
+            title=cmd.title,
+            workspace=cmd.workspace,
+        )
+        return SessionCreateResult(
+            session_id=session.id,
+            status=session.status,
+            workspace=session.workspace,
+        )
 
     @staticmethod
     def _session_info(session: Any) -> SessionInfo:
@@ -140,6 +152,7 @@ class CoreApp:
             updated_at=session.updated_at,
             run_count=len(session.run_ids),
             interrupted_reason=session.interrupted_reason,
+            workspace=session.workspace,
         )
 
     async def _session_list_handler(self, params: dict[str, Any]) -> SessionListResult:

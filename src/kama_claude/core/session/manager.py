@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from kama_claude.core.bus.envelope import HandlerError
@@ -29,6 +30,7 @@ SESSION_NOT_FOUND = -32010
 SESSION_CLOSED = -32011
 SESSION_BUSY = -32012
 SESSION_NOT_RESUMABLE = -32013
+SESSION_INVALID_WORKSPACE = -32014
 
 
 # 返回当前 UTC 时间的 ISO 8601 字符串
@@ -57,16 +59,36 @@ class SessionManager:
     def _restore_index(self) -> None:
         """Rebuild the in-memory index and repair sessions left running by a crash."""
         for session in self._store.list_sessions():
+            changed = False
+            if not session.workspace:
+                session.workspace = str(Path.cwd().resolve())
+                changed = True
             if session.status in {"active", "running"}:
                 session.status = "interrupted"
                 session.interrupted_reason = "daemon_restarted"
                 session.updated_at = _now()
+                changed = True
+            if changed:
                 self._store.write_meta(session)
             self._sessions[session.id] = session
             self._locks[session.id] = asyncio.Lock()
 
     # 创建新 session 并写入 meta.json
-    async def create(self, mode: SessionMode, title: str = "") -> Session:
+    async def create(
+        self,
+        mode: SessionMode,
+        title: str = "",
+        workspace: str = "",
+    ) -> Session:
+        try:
+            resolved_workspace = Path(workspace or Path.cwd()).expanduser().resolve()
+        except (OSError, RuntimeError) as exc:
+            raise HandlerError(SESSION_INVALID_WORKSPACE, "invalid workspace") from exc
+        if not resolved_workspace.is_dir():
+            raise HandlerError(
+                SESSION_INVALID_WORKSPACE,
+                f"workspace is not a directory: {resolved_workspace}",
+            )
         sid = f"sess-{uuid.uuid4().hex[:12]}"
         ts = _now()
         session = Session(
@@ -78,6 +100,7 @@ class SessionManager:
             updated_at=ts,
             run_ids=[],
             interrupted_reason=None,
+            workspace=str(resolved_workspace),
         )
         self._sessions[sid] = session
         self._locks[sid] = asyncio.Lock()

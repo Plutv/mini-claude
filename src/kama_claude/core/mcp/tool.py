@@ -24,7 +24,11 @@ class McpTool(BaseTool):
         self.input_schema: dict[str, Any] = (
             tool_def.input_schema or {"type": "object", "properties": {}}
         )
-        self.parallel_safe = tool_def.read_only_hint
+        self.read_only = tool_def.read_only_hint
+        # MCP readOnlyHint describes side effects, not whether the remote server
+        # safely supports concurrent calls. Keep remote calls serialized unless
+        # a future capability explicitly declares concurrency safety.
+        self.parallel_safe = False
 
     async def invoke(self, params: dict[str, object]) -> ToolResult:
         try:

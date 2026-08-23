@@ -22,6 +22,7 @@ class AgentRunCommand(BaseModel):
     type: Literal["agent.run"] = "agent.run"
     goal: str
     subscribe_topics: list[str] = Field(default_factory=list)
+    workspace: str = ""
 
 
 class AgentRunResult(BaseModel):
@@ -45,11 +46,13 @@ class SessionCreateCommand(BaseModel):
     type: Literal["session.create"] = "session.create"
     mode: SessionMode = "chat"
     title: str = ""
+    workspace: str = ""
 
 
 class SessionCreateResult(BaseModel):
     session_id: str
     status: SessionStatus
+    workspace: str
 
 
 class SessionInfo(BaseModel):
@@ -61,6 +64,7 @@ class SessionInfo(BaseModel):
     updated_at: str
     run_count: int
     interrupted_reason: str | None = None
+    workspace: str = ""
 
 
 class SessionListCommand(BaseModel):

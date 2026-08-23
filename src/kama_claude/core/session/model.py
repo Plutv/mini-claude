@@ -23,6 +23,7 @@ class Session:
     updated_at: str
     run_ids: list[str] = field(default_factory=list)
     interrupted_reason: str | None = None
+    workspace: str = ""
 
     # 将 Session 转为可写入 meta.json 的普通 dict
     def to_dict(self) -> dict[str, Any]:
@@ -35,6 +36,7 @@ class Session:
             "updated_at": self.updated_at,
             "run_ids": list(self.run_ids),
             "interrupted_reason": self.interrupted_reason,
+            "workspace": self.workspace,
         }
 
     # 从 meta.json 的 dict 还原 Session 对象
@@ -53,4 +55,5 @@ class Session:
                 if data.get("interrupted_reason") is not None
                 else None
             ),
+            workspace=str(data.get("workspace", "")),
         )

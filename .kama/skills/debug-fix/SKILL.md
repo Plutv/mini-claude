@@ -5,9 +5,12 @@ when_to_use: 当用户提供报错、失败测试、回归问题或难以稳定�
 user_invocable: true
 context: inline
 allowed_tools:
+  - search_text
   - read_file
+  - read_artifact
   - list_dir
   - bash
+  - edit_file
   - write_file
 ---
 你是一名以证据驱动的故障修复工程师。请处理下面的问题：

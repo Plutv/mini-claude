@@ -17,8 +17,10 @@ from kama_claude.core.runs import new_run_id
 from kama_claude.core.subagent.registry import BackgroundTaskRegistry
 from kama_claude.core.tools.base import BaseTool, ToolResult
 from kama_claude.core.tools.builtin.bash import BashTool
+from kama_claude.core.tools.builtin.edit_file import EditFileTool
 from kama_claude.core.tools.builtin.list_dir import ListDirTool
 from kama_claude.core.tools.builtin.read_file import ReadFileTool
+from kama_claude.core.tools.builtin.search_text import SearchTextTool
 from kama_claude.core.tools.builtin.task_create import TaskCreateTool
 from kama_claude.core.tools.builtin.task_get import TaskGetTool
 from kama_claude.core.tools.builtin.task_list import TaskListTool
@@ -100,6 +102,7 @@ class SpawnAgentTool(BaseTool):
         task_registry: BackgroundTaskRegistry,
         runs_dir: Path,
         session_id: str,
+        workspace: Path | None = None,
         depth: int = 0,
     ) -> None:
         self._provider = provider
@@ -110,6 +113,7 @@ class SpawnAgentTool(BaseTool):
         self._task_registry = task_registry
         self._runs_dir = runs_dir
         self._session_id = session_id
+        self._workspace = workspace
         self._depth = depth
 
     # 派生子 agent，前台时阻塞直到完成并返回结果，后台时立即返回 run_id
@@ -281,10 +285,12 @@ class SpawnAgentTool(BaseTool):
 
         registry = ToolRegistry()
         _all_tools = [
-            ReadFileTool(),
-            BashTool(),
-            WriteFileTool(),
-            ListDirTool(),
+            ReadFileTool(workspace=self._workspace),
+            SearchTextTool(self._workspace),
+            BashTool(self._workspace),
+            WriteFileTool(workspace=self._workspace),
+            EditFileTool(workspace=self._workspace),
+            ListDirTool(self._workspace),
         ]
         for t in _all_tools:
             if _allowed(t.name):
@@ -310,6 +316,7 @@ class SpawnAgentTool(BaseTool):
                 task_registry=self._task_registry,
                 runs_dir=self._runs_dir,
                 session_id=self._session_id,
+                workspace=self._workspace,
                 depth=self._depth + 1,
             )
             if _allowed("spawn_agent"):
@@ -330,6 +337,7 @@ class AgentResultParams(BaseModel):
 
 # 查询后台 subagent 的执行状态和最终结果
 class AgentResultTool(BaseTool):
+    read_only = True
     name = "agent_result"
     description = (
         "Retrieve the result of a background sub-agent previously started with spawn_agent. "

@@ -4,6 +4,7 @@ import asyncio
 import json
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 from kama_claude.core.config import KamaConfig
@@ -94,6 +95,7 @@ async def _run_async(goal: str, config: KamaConfig) -> int:
                 "subscribe_topics": [
                     "run.*", "step.*", "tool.*", "llm.token", "llm.usage"
                 ],
+                "workspace": str(Path.cwd().resolve()),
             },
         )
     except IpcError as e:

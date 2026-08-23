@@ -29,6 +29,10 @@ class ToolArtifactStore:
         self._threshold = threshold
         self._keep_chars = keep_chars
 
+    @property
+    def directory(self) -> Path:
+        return self._directory
+
     async def externalize(
         self,
         tool_call: ToolCallBlock,
@@ -82,7 +86,7 @@ class ToolArtifactStore:
             f"path: {artifact.resolve()}\n"
             f"bytes: {len(encoded)}\n"
             f"sha256: {digest}\n"
-            "Use read_file with the artifact path if more detail is required."
+            "Use read_artifact with this path and a bounded range if more detail is required."
         )
         return ToolResult(
             content=reference,
