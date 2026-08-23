@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "evaluation_kind": "deterministic_system_capability",
-  "generated_at": "2026-08-21T08:01:18.073774+00:00",
-  "git_commit": "bd89474",
-  "git_dirty": true,
+  "generated_at": "2026-08-23T17:31:33.400168+00:00",
+  "git_commit": "77dcc7c",
+  "git_dirty": false,
   "environment": {
     "python": "3.12.13",
     "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.35"
@@ -14,9 +14,9 @@
     "Recovery metrics cover storage boundaries, not external tool exactly-once semantics."
   ],
   "summary": {
-    "suites": 3,
-    "cases": 11,
-    "passed": 11,
+    "suites": 4,
+    "cases": 15,
+    "passed": 15,
     "pass_rate": 1.0
   },
   "suites": {
@@ -33,8 +33,8 @@
           "passed": true,
           "metrics": {
             "original_bytes": 100012,
-            "active_context_bytes": 4308,
-            "reduction_pct": 95.69,
+            "active_context_bytes": 4324,
+            "reduction_pct": 95.68,
             "artifact_sha256_valid": true,
             "error_semantics_preserved": true
           }
@@ -45,8 +45,8 @@
           "passed": true,
           "metrics": {
             "original_bytes": 100010,
-            "active_context_bytes": 4303,
-            "reduction_pct": 95.7,
+            "active_context_bytes": 4319,
+            "reduction_pct": 95.68,
             "artifact_sha256_valid": true,
             "error_semantics_preserved": true
           }
@@ -157,6 +157,51 @@
           "metrics": {
             "orphan_trimmed": true,
             "tool_pairs_balanced": true
+          }
+        }
+      ]
+    },
+    "governance": {
+      "summary": {
+        "cases": 4,
+        "passed": 4,
+        "pass_rate": 1.0
+      },
+      "cases": [
+        {
+          "suite": "governance",
+          "case_id": "workspace-boundary",
+          "passed": true,
+          "metrics": {
+            "absolute_escape_blocked": true
+          }
+        },
+        {
+          "suite": "governance",
+          "case_id": "atomic-edit-rollback",
+          "passed": true,
+          "metrics": {
+            "failure_injected": true,
+            "original_preserved": true,
+            "leaked_temp_files": 0
+          }
+        },
+        {
+          "suite": "governance",
+          "case_id": "plan-safety-contract",
+          "passed": true,
+          "metrics": {
+            "serialized_read_allowed": true,
+            "mutation_blocked": true
+          }
+        },
+        {
+          "suite": "governance",
+          "case_id": "search-result-budget",
+          "passed": true,
+          "metrics": {
+            "returned_matches": 2,
+            "truncated": true
           }
         }
       ]
