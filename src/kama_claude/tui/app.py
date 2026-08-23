@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from rich.markdown import Markdown
+from rich.markup import escape as _esc
 from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -19,13 +20,17 @@ from textual.widgets import Label, Static, TextArea
 from kama_claude.core.config import KamaConfig
 from kama_claude.core.skills.loader import SkillLoader
 from kama_claude.core.transport.socket_client import IpcError, SocketClient
+from kama_claude.tui.session_browser import (
+    _filter_resumable_sessions,
+    _preview,
+    _render_session_list,
+    _resolve_resume_target,
+    flatten_tool_result_content,
+    is_compacted_history,
+    parse_history_for_render,
+)
 
 log = logging.getLogger(__name__)
-
-
-def _preview(s: str, n: int) -> str:
-    return s[:n] + "…" if len(s) > n else s
-
 
 
 
@@ -106,8 +111,8 @@ class ToolCallBlock(Widget):
         if self._tool_name == "note_save" and self._finished and not self._is_error:
             return f"  [green]remembered[/green]  [dim]{self._elapsed_ms}ms[/dim]"
 
-        params_pre = _param_summary(self._tool_name, self._params)
-        line = f"  [dim]tool[/dim] [bold]{self._tool_name}[/bold]"
+        params_pre = _esc(_param_summary(self._tool_name, self._params))
+        line = f"  [dim]tool[/dim] [bold]{_esc(self._tool_name)}[/bold]"
         if params_pre:
             line += f"  [dim]{params_pre}[/dim]"
         if self._finished:
@@ -135,8 +140,8 @@ class ToolCallBlock(Widget):
         else:
             detail = self.query_one(".detail", Static)
             detail.update(
-                f"[dim]params[/dim]\n{self._params_full}\n\n"
-                f"[dim]output[/dim]\n{self._output}\n\n"
+                f"[dim]params[/dim]\n{_esc(self._params_full)}\n\n"
+                f"[dim]output[/dim]\n{_esc(self._output)}\n\n"
                 f"[dim]elapsed:[/dim] {self._elapsed_ms}ms"
             )
             self.add_class("expanded")
@@ -276,8 +281,8 @@ class PermissionBlock(Static):
         super().__init__(self._pending_text(), classes="log-line")
 
     def _pending_text(self) -> str:
-        preview = f"  [dim]{self._param_preview}[/dim]" if self._param_preview else ""
-        return f"[bold red]? permission[/bold red]  [bold]{self._tool_name}[/bold]{preview}"
+        preview = f"  [dim]{_esc(self._param_preview)}[/dim]" if self._param_preview else ""
+        return f"[bold red]? permission[/bold red]  [bold]{_esc(self._tool_name)}[/bold]{preview}"
 
     # 将块收缩为单行摘要并发布 Resolved 消息
     def _resolve(self, decision: str) -> None:
@@ -287,9 +292,9 @@ class PermissionBlock(Static):
         allowed = decision in ("allow_once", "always_allow")
         icon = "[bold green]✓[/bold green]" if allowed else "[bold red]✗[/bold red]"
         label = self._LABEL_MAP.get(decision, decision)
-        preview = f"  [dim]{self._param_preview}[/dim]" if self._param_preview else ""
+        preview = f"  [dim]{_esc(self._param_preview)}[/dim]" if self._param_preview else ""
         self.update(
-            f"{icon} permission  [bold]{self._tool_name}[/bold]{preview}  [dim]{label}[/dim]"
+            f"{icon} permission  [bold]{_esc(self._tool_name)}[/bold]{preview}  [dim]{label}[/dim]"
         )
         self.post_message(self.Resolved(self, decision))
 
@@ -498,7 +503,7 @@ class KamaTuiApp(App[None]):
         "[bold cyan]██╔═██╗ ██╔══██║██║╚██╔╝██║██╔══██║██║     ██║     ██╔══██║██║   ██║██║  ██║██╔══╝  [/bold cyan]\n"
         "[bold cyan]██║  ██╗██║  ██║██║ ╚═╝ ██║██║  ██║╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝███████╗[/bold cyan]\n"
         "[bold cyan]╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝[/bold cyan]\n"
-        "[dim]  输入消息开始对话  ·  键入 / 触发 skill  ·  Ctrl+C 退出[/dim]"
+        "[dim]  输入消息开始对话  ·  键入 / 触发命令  ·  /sessions 查看会话  ·  /resume 恢复会话  ·  Ctrl+Q 退出[/dim]"
     )
 
     # 初始化连接参数和 TUI 内部状态
@@ -515,6 +520,7 @@ class KamaTuiApp(App[None]):
         self._busy = False
         self._last_context_pct: float = 0.0
         self._slash_items: list[tuple[str, str]] = []
+        self._last_session_list: list[dict[str, Any]] = []  # 最近一次 /sessions 结果，用于 /resume <序号>
         self._subagent_run_ids: dict[str, str] = {}  # child run_id -> description
         self._subagent_start_times: dict[str, float] = {}  # child run_id -> start time
 
@@ -533,7 +539,11 @@ class KamaTuiApp(App[None]):
 
     # 构建斜杠命令候选列表：内建命令 + 所有已注册 skill
     def _build_slash_items(self) -> list[tuple[str, str]]:
-        items: list[tuple[str, str]] = [("compact", "compress context window")]
+        items: list[tuple[str, str]] = [
+            ("compact", "compress context window"),
+            ("sessions", "list recent chat sessions"),
+            ("resume", "resume a previous chat session"),
+        ]
         try:
             loader = SkillLoader()
             for skill in loader.list_all_skills():
@@ -621,6 +631,23 @@ class KamaTuiApp(App[None]):
             if self._client is not None and self._session_id is not None and not self._busy:
                 self.run_worker(self._do_compact(), name="compact", exclusive=False)
             return
+        # /sessions 与裸 /resume：列出可恢复的最近 chat 会话供选择
+        if content in ("/sessions", "/resume"):
+            event.text_area.text = ""
+            if self._client is None or self._session_id is None or self._busy:
+                self._append(Static("[yellow]agent busy or disconnected[/yellow]", classes="log-line"))
+                return
+            self.run_worker(self._do_list_sessions(), name="sessions", exclusive=False)
+            return
+        # /resume <id|序号>：恢复指定会话（纯数字按最近列表序号解析）
+        if content.startswith("/resume "):
+            arg = content[len("/resume "):].strip()
+            event.text_area.text = ""
+            if self._client is None or self._session_id is None or self._busy:
+                self._append(Static("[yellow]agent busy or disconnected[/yellow]", classes="log-line"))
+                return
+            self.run_worker(self._do_resume(arg), name="resume", exclusive=False)
+            return
         if self._client is None or self._session_id is None or self._busy:
             self._append(Static("[yellow]agent busy or disconnected[/yellow]", classes="log-line"))
             return
@@ -630,7 +657,7 @@ class KamaTuiApp(App[None]):
         prompt.disabled = True
         prompt.read_only = False
         prompt.border_title = "agent is working..."
-        self._append(Static(f"[bold]>[/bold] {content}", classes="user-turn"))
+        self._append(Static(f"[bold]>[/bold] {_esc(content)}", classes="user-turn"))
         self._update_header("running")
         self.run_worker(self._do_send_message(content), name="send_message", exclusive=False)
 
@@ -653,7 +680,7 @@ class KamaTuiApp(App[None]):
                 classes="log-line",
             ))
         except (IpcError, RuntimeError, OSError) as e:
-            self._append(Static(f"[red]compact error: {e}[/red]", classes="log-line"))
+            self._append(Static(f"[red]compact error: {_esc(str(e))}[/red]", classes="log-line"))
 
     # 在 worker 中执行 IPC 发送，使 App 消息泵在 agent 运行期间仍能处理键盘/焦点等消息
     async def _do_send_message(self, content: str) -> None:
@@ -672,7 +699,114 @@ class KamaTuiApp(App[None]):
                 prompt.read_only = False
                 prompt.border_title = "type a message — enter to send, ⌘/⇧/⌥+enter for newline"
             self._update_header("ready")
-            self._append(Static(f"[red]send error: {e}[/red]", classes="log-line"))
+            self._append(Static(f"[red]send error: {_esc(str(e))}[/red]", classes="log-line"))
+
+    # 拉取可恢复的 chat 会话列表（排除当前），存入 _last_session_list 供 /resume <序号> 使用
+    async def _refresh_session_list(self) -> list[dict[str, Any]]:
+        if self._client is None:
+            return []
+        try:
+            result = await self._client.send_command("session.list", {"limit": 50})
+            sessions = result.get("sessions", [])
+        except (IpcError, RuntimeError, OSError) as e:
+            self._append(Static(f"[red]session list error: {_esc(str(e))}[/red]", classes="log-line"))
+            return []
+        recent = _filter_resumable_sessions(sessions, self._session_id)
+        self._last_session_list = recent
+        return recent
+
+    # 列出可恢复的 chat 会话（排除当前），并存入 _last_session_list 供 /resume <序号> 使用
+    async def _do_list_sessions(self) -> None:
+        recent = await self._refresh_session_list()
+        if not recent:
+            self._append(Static("[dim]no other chat sessions to resume[/dim]", classes="log-line"))
+            return
+        self._append(Static(_render_session_list(recent), classes="log-line"))
+
+    # 恢复指定会话：数字参数按最近列表序号解析（解析不了时自动先拉列表，免去手敲 /sessions），
+    # 否则按 session_id；成功后切换活动会话并把历史渲染进界面。
+    async def _do_resume(self, arg: str) -> None:
+        if self._client is None:
+            return
+        # 还没列过会话（或目标序号越界）时，自动拉一次列表再解析
+        if not self._last_session_list:
+            await self._refresh_session_list()
+        target_id = _resolve_resume_target(arg, self._last_session_list)
+        if target_id is None:
+            if self._last_session_list:
+                self._append(Static(_render_session_list(self._last_session_list), classes="log-line"))
+            self._append(Static(
+                f"[red]无法解析恢复目标: {_esc(arg)}[/red]  "
+                "[dim](用 /resume <n> 选列表中的序号，或 /resume <session_id>)[/dim]",
+                classes="log-line",
+            ))
+            return
+        try:
+            resumed = await self._client.send_command(
+                "session.resume", {"session_id": target_id}
+            )
+            messages = resumed.get("messages", [])
+            self._session_id = str(resumed["session"]["session_id"])
+            self._update_header("ready")
+            self._append(Static(
+                f"[bold cyan]⮌ resumed session[/bold cyan]  {_esc(self._session_id)}  "
+                f"[dim]{len(messages)} messages restored[/dim]",
+                classes="log-line",
+            ))
+            if messages:
+                if is_compacted_history(messages):
+                    self._append(Static(
+                        "[yellow]⚠️ 此会话已被压缩[/yellow]  "
+                        "[dim]以下为「摘要 + 近期消息」，早期原文已压缩存档。"
+                        "手动 /compact 的原始备份在会话目录的 thread_*.jsonl.bak，摘要在 summary_*.md。"
+                        "agent 仍凭摘要续接上下文。[/dim]",
+                        classes="log-line",
+                    ))
+                self._append(Static("── previous session history ──", classes="log-line"))
+                self._render_history(messages)
+            else:
+                self._append(Static(
+                    "[dim]该会话没有历史消息（空会话）。直接输入新消息即可开始。[/dim]",
+                    classes="log-line",
+                ))
+        except (IpcError, RuntimeError, OSError) as e:
+            self._append(Static(f"[red]resume error: {_esc(str(e))}[/red]", classes="log-line"))
+
+    # 把恢复的会话历史（Anthropic messages 格式）渲染进 log-view：用户文本、助手文本、
+    # 工具调用及结果（按 tool_use_id 配对）。后续该会话的新事件会从历史末尾继续追加。
+    def _render_history(self, messages: list[dict[str, Any]]) -> None:
+        items = parse_history_for_render(messages)
+        pending_tool: dict[str, ToolCallBlock] = {}
+        for item in items:
+            kind = item["kind"]
+            if kind == "user_text":
+                self._append(Static(f"[bold]>[/bold] {_esc(item['text'])}", classes="user-turn"))
+            elif kind == "assistant_text":
+                llm = LLMStreamBlock()
+                llm.append_token(item["text"])
+                llm.finalize_markdown()
+                self._append(llm)
+            elif kind == "tool_use":
+                tc = ToolCallBlock(item["name"], item["input"])
+                self._append(tc)
+                pending_tool[item["tool_use_id"]] = tc
+            elif kind == "tool_result":
+                output = flatten_tool_result_content(item["content"])
+                tool_use_id = item["tool_use_id"]
+                matched_tool = (
+                    pending_tool.pop(tool_use_id) if tool_use_id in pending_tool else None
+                )
+                if matched_tool is not None:
+                    matched_tool.set_result(output, 0, is_error=item["is_error"])
+                else:
+                    tag = "[red]tool error[/red]" if item["is_error"] else "[dim]tool result[/dim]"
+                    self._append(Static(
+                        f"  {tag}  [dim]{_esc(_preview(output, 120))}[/dim]",
+                        classes="log-line",
+                    ))
+        # 收尾：未配对的 tool_use 标记为已完成（无结果）
+        for tc in pending_tool.values():
+            tc.set_result("", 0)
 
     # 处理内联审批控件的用户决策：发送 IPC 响应并恢复输入框
     async def on_permission_select_decided(self, msg: PermissionSelect.Decided) -> None:
@@ -818,7 +952,7 @@ class KamaTuiApp(App[None]):
                 self._update_header("ready")
                 await loop_task
             except IpcError as e:
-                header.update(f"[bold]KamaClaude[/bold]  [red]subscribe error: {e}[/red]")
+                header.update(f"[bold]KamaClaude[/bold]  [red]subscribe error: {_esc(str(e))}[/red]")
             finally:
                 if not loop_task.done():
                     loop_task.cancel()
@@ -880,17 +1014,17 @@ class KamaTuiApp(App[None]):
             run_id = event.get("run_id", "")
             goal = event.get("goal", "")
             self._append(Static(
-                f"[dim]run[/dim]  [cyan]{run_id}[/cyan]  [dim]{_preview(goal, 96)}[/dim]",
+                f"[dim]run[/dim]  [cyan]{_esc(str(run_id))}[/cyan]  [dim]{_esc(_preview(str(goal), 96))}[/dim]",
                 classes="run-header",
             ))
 
         elif t == "skill.invoked":
             skill_name = event.get("skill_name", "")
             arguments = event.get("arguments", "")
-            args_preview = _preview(arguments, 80) if arguments else ""
+            args_preview = _esc(_preview(str(arguments), 80)) if arguments else ""
             args_part = f"  [dim]{args_preview}[/dim]" if args_preview else ""
             self._append(Static(
-                f"[bold cyan]/{skill_name}[/bold cyan]{args_part}",
+                f"[bold cyan]/{_esc(str(skill_name))}[/bold cyan]{args_part}",
                 classes="log-line",
             ))
 
@@ -901,7 +1035,7 @@ class KamaTuiApp(App[None]):
             self._subagent_start_times[run_id] = time.monotonic()
             short_id = run_id[:8] if len(run_id) >= 8 else run_id
             self._append(Static(
-                f"[dim]┌─[/dim] [cyan]{_preview(description, 72)}[/cyan]  [dim]{short_id}[/dim]",
+                f"[dim]┌─[/dim] [cyan]{_esc(_preview(str(description), 72))}[/cyan]  [dim]{_esc(str(short_id))}[/dim]",
                 classes="log-line",
             ))
 
@@ -911,7 +1045,7 @@ class KamaTuiApp(App[None]):
             description = self._subagent_run_ids.pop(run_id, event.get("description", ""))
             start = self._subagent_start_times.pop(run_id, None)
             elapsed = f"  [dim]{time.monotonic() - start:.1f}s[/dim]" if start is not None else ""
-            desc_part = f"[cyan]{_preview(description, 72)}[/cyan]{elapsed}"
+            desc_part = f"[cyan]{_esc(_preview(str(description), 72))}[/cyan]{elapsed}"
             if status == "success":
                 self._append(Static(
                     f"[dim]└─[/dim] [bold green]✓[/bold green] {desc_part}",
@@ -970,7 +1104,7 @@ class KamaTuiApp(App[None]):
                     classes="run-ok",
                 ))
             else:
-                detail = f"  [dim]{reason}[/dim]" if reason else ""
+                detail = f"  [dim]{_esc(reason)}[/dim]" if reason else ""
                 self._append(Static(
                     f"[bold red]✗ failed[/bold red]{detail}  [dim]{steps} steps[/dim]",
                     classes="run-err",
@@ -1050,7 +1184,7 @@ class KamaTuiApp(App[None]):
             color = "bold red" if level == "ERROR" else ("yellow" if level == "WARNING" else "dim")
             self._append(Static(
                 f"[{color}]{level}[/{color}]  "
-                f"[dim]{event.get('source', '')}[/dim]  {event.get('message', '')}",
+                f"[dim]{_esc(str(event.get('source', '')))}[/dim]  {_esc(str(event.get('message', '')))}",
                 classes="log-line",
             ))
 
