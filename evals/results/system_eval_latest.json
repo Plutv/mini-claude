@@ -1,0 +1,165 @@
+{
+  "schema_version": "1.0",
+  "evaluation_kind": "deterministic_system_capability",
+  "generated_at": "2026-08-21T08:01:18.073774+00:00",
+  "git_commit": "bd89474",
+  "git_dirty": true,
+  "environment": {
+    "python": "3.12.13",
+    "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.35"
+  },
+  "limitations": [
+    "Uses deterministic synthetic fixtures and does not measure end-to-end model task success.",
+    "Memory metrics measure retrieval quality, not observed reduction in model tool calls.",
+    "Recovery metrics cover storage boundaries, not external tool exactly-once semantics."
+  ],
+  "summary": {
+    "suites": 3,
+    "cases": 11,
+    "passed": 11,
+    "pass_rate": 1.0
+  },
+  "suites": {
+    "context": {
+      "summary": {
+        "cases": 3,
+        "passed": 3,
+        "pass_rate": 1.0
+      },
+      "cases": [
+        {
+          "suite": "context",
+          "case_id": "large-success",
+          "passed": true,
+          "metrics": {
+            "original_bytes": 100012,
+            "active_context_bytes": 4308,
+            "reduction_pct": 95.69,
+            "artifact_sha256_valid": true,
+            "error_semantics_preserved": true
+          }
+        },
+        {
+          "suite": "context",
+          "case_id": "large-error",
+          "passed": true,
+          "metrics": {
+            "original_bytes": 100010,
+            "active_context_bytes": 4303,
+            "reduction_pct": 95.7,
+            "artifact_sha256_valid": true,
+            "error_semantics_preserved": true
+          }
+        },
+        {
+          "suite": "context",
+          "case_id": "layered-maintenance",
+          "passed": true,
+          "metrics": {
+            "before_active_chars": 97925,
+            "after_active_chars": 14137,
+            "reduction_pct": 85.56,
+            "budgeted_results": 8,
+            "microcompacted_results": 5,
+            "tool_pairs_balanced": true,
+            "current_request_preserved": true
+          }
+        }
+      ]
+    },
+    "memory": {
+      "summary": {
+        "cases": 3,
+        "passed": 3,
+        "pass_rate": 1.0
+      },
+      "cases": [
+        {
+          "suite": "memory",
+          "case_id": "selective-retrieval",
+          "passed": true,
+          "metrics": {
+            "queries": 5,
+            "hit_at_1": 1.0,
+            "hit_at_3": 1.0,
+            "scope_violations": 0
+          }
+        },
+        {
+          "suite": "memory",
+          "case_id": "content-deduplication",
+          "passed": true,
+          "metrics": {
+            "same_memory_id": true,
+            "merged_tag_count": 2
+          }
+        },
+        {
+          "suite": "memory",
+          "case_id": "recall-character-budget",
+          "passed": true,
+          "metrics": {
+            "selected": 1,
+            "used_chars": 87,
+            "max_chars": 100
+          }
+        }
+      ]
+    },
+    "recovery": {
+      "summary": {
+        "cases": 5,
+        "passed": 5,
+        "pass_rate": 1.0
+      },
+      "cases": [
+        {
+          "suite": "recovery",
+          "case_id": "atomic-roundtrip",
+          "passed": true,
+          "metrics": {
+            "messages_restored": 4,
+            "tool_pairs_balanced": true
+          }
+        },
+        {
+          "suite": "recovery",
+          "case_id": "reject-unbalanced-snapshot",
+          "passed": true,
+          "metrics": {
+            "rejected": true,
+            "previous_snapshot_preserved": true
+          }
+        },
+        {
+          "suite": "recovery",
+          "case_id": "atomic-replace-failure",
+          "passed": true,
+          "metrics": {
+            "failure_injected": true,
+            "previous_snapshot_preserved": true,
+            "leaked_temp_files": 0
+          }
+        },
+        {
+          "suite": "recovery",
+          "case_id": "broken-jsonl-tail",
+          "passed": true,
+          "metrics": {
+            "valid_messages_restored": 4,
+            "broken_tail_skipped": true
+          }
+        },
+        {
+          "suite": "recovery",
+          "case_id": "orphan-tool-use-tail",
+          "passed": true,
+          "metrics": {
+            "orphan_trimmed": true,
+            "tool_pairs_balanced": true
+          }
+        }
+      ]
+    }
+  }
+}
