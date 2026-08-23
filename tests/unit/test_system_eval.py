@@ -12,12 +12,17 @@ async def test_system_evaluation_reports_all_capabilities() -> None:
 
     assert report["evaluation_kind"] == "deterministic_system_capability"
     assert report["summary"] == {
-        "suites": 3,
-        "cases": 11,
-        "passed": 11,
+        "suites": 4,
+        "cases": 15,
+        "passed": 15,
         "pass_rate": 1.0,
     }
-    assert set(report["suites"]) == {"context", "memory", "recovery"}
+    assert set(report["suites"]) == {
+        "context",
+        "memory",
+        "recovery",
+        "governance",
+    }
     assert report["limitations"]
 
 
@@ -49,3 +54,15 @@ def test_cli_writes_machine_readable_report(
     printed = json.loads(capsys.readouterr().out)
     assert saved == printed
     assert saved["summary"]["cases"] == 5
+
+
+async def test_governance_metrics_cover_workspace_plan_and_atomic_edit() -> None:
+    report = await run_evaluation({"governance"})
+    cases = {
+        case["case_id"]: case for case in report["suites"]["governance"]["cases"]
+    }
+
+    assert cases["workspace-boundary"]["metrics"]["absolute_escape_blocked"] is True
+    assert cases["atomic-edit-rollback"]["metrics"]["original_preserved"] is True
+    assert cases["plan-safety-contract"]["metrics"]["mutation_blocked"] is True
+    assert cases["search-result-budget"]["metrics"]["returned_matches"] == 2

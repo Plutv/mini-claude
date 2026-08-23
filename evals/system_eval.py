@@ -20,9 +20,13 @@ from kama_claude.core.context import ExecutionContext
 from kama_claude.core.events.bus import EventBus
 from kama_claude.core.llm.types import LlmResponse, ToolCallBlock, UsageStats
 from kama_claude.core.memory.store import MemoryStore
+from kama_claude.core.plan.controller import PlanController
 from kama_claude.core.session.store import SessionStore
 from kama_claude.core.tools.artifacts import ToolArtifactStore
-from kama_claude.core.tools.base import ToolResult
+from kama_claude.core.tools.base import BaseTool, ToolResult
+from kama_claude.core.tools.builtin.edit_file import EditFileTool
+from kama_claude.core.tools.builtin.read_file import ReadFileTool
+from kama_claude.core.tools.builtin.search_text import SearchTextTool
 
 
 @dataclass(frozen=True)
@@ -433,6 +437,107 @@ def evaluate_recovery(root: Path) -> list[EvalCaseResult]:
     return cases
 
 
+class _GovernanceTool(BaseTool):
+    description = "evaluation tool"
+    input_schema = {"type": "object", "properties": {}}
+
+    def __init__(self, name: str, *, read_only: bool) -> None:
+        self.name = name
+        self.read_only = read_only
+
+    async def invoke(self, params: dict[str, object]) -> ToolResult:
+        del params
+        return ToolResult(content="ok")
+
+
+async def evaluate_governance(root: Path) -> list[EvalCaseResult]:
+    cases: list[EvalCaseResult] = []
+    workspace = root / "workspace"
+    workspace.mkdir(parents=True)
+    outside = root / "outside.txt"
+    outside.write_text("secret", encoding="utf-8")
+
+    escape_blocked = False
+    try:
+        await ReadFileTool(workspace=workspace).invoke({"path": str(outside)})
+    except PermissionError:
+        escape_blocked = True
+    cases.append(
+        EvalCaseResult(
+            "governance",
+            "workspace-boundary",
+            escape_blocked,
+            {"absolute_escape_blocked": escape_blocked},
+        )
+    )
+
+    target = workspace / "app.py"
+    target.write_text("value = 1\n", encoding="utf-8")
+    replace_failed = False
+    try:
+        with patch(
+            "kama_claude.core.tools.builtin.edit_file.os.replace",
+            side_effect=OSError("injected replace failure"),
+        ):
+            await EditFileTool(workspace=workspace).invoke(
+                {
+                    "path": "app.py",
+                    "old_text": "value = 1",
+                    "new_text": "value = 2",
+                }
+            )
+    except OSError:
+        replace_failed = True
+    original_preserved = target.read_text(encoding="utf-8") == "value = 1\n"
+    leaked_temps = len(list(workspace.glob(".*.tmp")))
+    cases.append(
+        EvalCaseResult(
+            "governance",
+            "atomic-edit-rollback",
+            replace_failed and original_preserved and leaked_temps == 0,
+            {
+                "failure_injected": replace_failed,
+                "original_preserved": original_preserved,
+                "leaked_temp_files": leaked_temps,
+            },
+        )
+    )
+
+    controller = PlanController(root / "plan.json")
+    controller.enter("inspect before changing")
+    serialized_read = _GovernanceTool("remote_read", read_only=True)
+    mutation = _GovernanceTool("write", read_only=False)
+    read_allowed = controller.guard(serialized_read) is None
+    mutation_blocked = controller.guard(mutation) is not None
+    cases.append(
+        EvalCaseResult(
+            "governance",
+            "plan-safety-contract",
+            read_allowed and mutation_blocked,
+            {
+                "serialized_read_allowed": read_allowed,
+                "mutation_blocked": mutation_blocked,
+            },
+        )
+    )
+
+    (workspace / "matches.txt").write_text("hit\nhit\nhit\nhit\n", encoding="utf-8")
+    search = await SearchTextTool(workspace).invoke(
+        {"query": "hit", "max_results": 2}
+    )
+    match_count = search.content.count("matches.txt:")
+    truncated = search.content.endswith("[results truncated]")
+    cases.append(
+        EvalCaseResult(
+            "governance",
+            "search-result-budget",
+            match_count == 2 and truncated,
+            {"returned_matches": match_count, "truncated": truncated},
+        )
+    )
+    return cases
+
+
 def _git_state() -> tuple[str, bool]:
     try:
         commit = subprocess.run(
@@ -455,7 +560,7 @@ def _git_state() -> tuple[str, bool]:
 
 
 async def run_evaluation(selected: set[str] | None = None) -> dict[str, Any]:
-    selected = selected or {"context", "memory", "recovery"}
+    selected = selected or {"context", "memory", "recovery", "governance"}
     suites: dict[str, Any] = {}
     with tempfile.TemporaryDirectory(prefix="kc-system-eval-") as temp:
         root = Path(temp)
@@ -465,6 +570,10 @@ async def run_evaluation(selected: set[str] | None = None) -> dict[str, Any]:
             suites["memory"] = _suite_payload(evaluate_memory(root / "memory"))
         if "recovery" in selected:
             suites["recovery"] = _suite_payload(evaluate_recovery(root / "recovery"))
+        if "governance" in selected:
+            suites["governance"] = _suite_payload(
+                await evaluate_governance(root / "governance")
+            )
 
     total_cases = sum(int(suite["summary"]["cases"]) for suite in suites.values())
     passed = sum(int(suite["summary"]["passed"]) for suite in suites.values())
@@ -496,7 +605,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Evaluate KC runtime system capabilities")
     parser.add_argument(
         "--suite",
-        choices=("all", "context", "memory", "recovery"),
+        choices=("all", "context", "memory", "recovery", "governance"),
         default="all",
     )
     parser.add_argument("--output", type=Path, help="write the raw JSON report")

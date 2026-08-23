@@ -49,6 +49,7 @@ python -m evals.system_eval --output evals/results/system_eval_latest.json
 python -m evals.system_eval --suite context
 python -m evals.system_eval --suite memory
 python -m evals.system_eval --suite recovery
+python -m evals.system_eval --suite governance
 ```
 
 当前包含：
@@ -56,6 +57,7 @@ python -m evals.system_eval --suite recovery
 - `context`：大结果和大错误的Artifact完整性、上下文载荷缩减、当前请求保护、工具消息配对；
 - `memory`：小型标注集的`Hit@1/Hit@3`、Scope隔离、内容去重和召回字符预算；
 - `recovery`：原子快照、非配对历史拒绝、替换失败回滚、损坏JSONL尾部和孤立`tool_use`恢复。
+- `governance`：Workspace越界拦截、原子编辑失败回滚、Plan Mode安全契约和检索结果预算。
 
 报告中的`limitations`是结论边界：这套评测验证Runtime机制，不等价于真实模型的代码任务成功率，也不能用于宣称SWE-bench成绩。
 
