@@ -1,0 +1,1033 @@
+{
+  "schema_version": "1.0",
+  "evaluation_kind": "live_context_answer_quality_ab",
+  "generated_at": "2026-08-23T17:49:11.200386+00:00",
+  "model": "deepseek-v4-flash",
+  "dataset_cases": 6,
+  "repetitions": 3,
+  "observations_per_condition": 18,
+  "summary": {
+    "baseline_exact_match": 1.0,
+    "managed_exact_match": 1.0,
+    "exact_match_delta_points": 0.0,
+    "baseline_total_prompt_tokens": 562599,
+    "managed_total_prompt_tokens": 146022,
+    "total_prompt_token_change_pct": -74.05,
+    "first_request_active_char_reduction_pct": 90.41,
+    "managed_offline_recoverability": 1.0,
+    "managed_tool_calls": 10
+  },
+  "cases": [
+    {
+      "case_id": "large-result-head",
+      "kind": "large_tool_result",
+      "repetition": 1,
+      "expected": "KC-HEAD-7A31",
+      "baseline": {
+        "answer": "KC-HEAD-7A31",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81897,
+        "total_prompt_tokens": 30608,
+        "total_output_tokens": 84,
+        "requests": [
+          {
+            "active_chars": 81897,
+            "input_tokens": 16,
+            "output_tokens": 84,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-HEAD-7A31",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 4972,
+        "total_prompt_tokens": 2270,
+        "total_output_tokens": 73,
+        "requests": [
+          {
+            "active_chars": 4972,
+            "input_tokens": 222,
+            "output_tokens": 73,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-result-middle",
+      "kind": "large_tool_result",
+      "repetition": 1,
+      "expected": "KC-MIDDLE-7F19",
+      "baseline": {
+        "answer": "KC-MIDDLE-7F19",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81903,
+        "total_prompt_tokens": 30608,
+        "total_output_tokens": 204,
+        "requests": [
+          {
+            "active_chars": 81903,
+            "input_tokens": 16,
+            "output_tokens": 204,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-MIDDLE-7F19",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 2,
+        "tool_calls": 1,
+        "first_request_chars": 4978,
+        "total_prompt_tokens": 12298,
+        "total_output_tokens": 169,
+        "requests": [
+          {
+            "active_chars": 4978,
+            "input_tokens": 217,
+            "output_tokens": 136,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 26070,
+            "input_tokens": 7729,
+            "output_tokens": 33,
+            "cache_read_tokens": 2304,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-result-tail",
+      "kind": "large_tool_result",
+      "repetition": 1,
+      "expected": "KC-TAIL-4D82",
+      "baseline": {
+        "answer": "KC-TAIL-4D82",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81897,
+        "total_prompt_tokens": 30609,
+        "total_output_tokens": 26,
+        "requests": [
+          {
+            "active_chars": 81897,
+            "input_tokens": 17,
+            "output_tokens": 26,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-TAIL-4D82",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 4971,
+        "total_prompt_tokens": 2274,
+        "total_output_tokens": 37,
+        "requests": [
+          {
+            "active_chars": 4971,
+            "input_tokens": 226,
+            "output_tokens": 37,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-error-middle",
+      "kind": "large_tool_error",
+      "repetition": 1,
+      "expected": "KC-ROOT-CAUSE-9C44",
+      "baseline": {
+        "answer": "KC-ROOT-CAUSE-9C44",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81921,
+        "total_prompt_tokens": 30611,
+        "total_output_tokens": 144,
+        "requests": [
+          {
+            "active_chars": 81921,
+            "input_tokens": 19,
+            "output_tokens": 144,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-ROOT-CAUSE-9C44",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 2,
+        "tool_calls": 1,
+        "first_request_chars": 4989,
+        "total_prompt_tokens": 12298,
+        "total_output_tokens": 151,
+        "requests": [
+          {
+            "active_chars": 4989,
+            "input_tokens": 215,
+            "output_tokens": 139,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 26086,
+            "input_tokens": 7731,
+            "output_tokens": 12,
+            "cache_read_tokens": 2304,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "stale-reads-latest-wins",
+      "kind": "stale_duplicate_results",
+      "repetition": 1,
+      "expected": "KC-CONFIG-V7",
+      "baseline": {
+        "answer": "KC-CONFIG-V7",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 87180,
+        "total_prompt_tokens": 32553,
+        "total_output_tokens": 89,
+        "requests": [
+          {
+            "active_chars": 87180,
+            "input_tokens": 41,
+            "output_tokens": 89,
+            "cache_read_tokens": 32512,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-CONFIG-V7",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 3,
+        "tool_calls": 2,
+        "first_request_chars": 14117,
+        "total_prompt_tokens": 17587,
+        "total_output_tokens": 1850,
+        "requests": [
+          {
+            "active_chars": 14117,
+            "input_tokens": 94,
+            "output_tokens": 285,
+            "cache_read_tokens": 5504,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 15333,
+            "input_tokens": 140,
+            "output_tokens": 169,
+            "cache_read_tokens": 5760,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 16195,
+            "input_tokens": 73,
+            "output_tokens": 1396,
+            "cache_read_tokens": 6016,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": false,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "current-request-survives-noise",
+      "kind": "current_request",
+      "repetition": 1,
+      "expected": "323",
+      "baseline": {
+        "answer": "323",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 87173,
+        "total_prompt_tokens": 32544,
+        "total_output_tokens": 64,
+        "requests": [
+          {
+            "active_chars": 87173,
+            "input_tokens": 32,
+            "output_tokens": 64,
+            "cache_read_tokens": 32512,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "323",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 14100,
+        "total_prompt_tokens": 5590,
+        "total_output_tokens": 68,
+        "requests": [
+          {
+            "active_chars": 14100,
+            "input_tokens": 86,
+            "output_tokens": 68,
+            "cache_read_tokens": 5504,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": false,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-result-head",
+      "kind": "large_tool_result",
+      "repetition": 2,
+      "expected": "KC-HEAD-7A31",
+      "baseline": {
+        "answer": "KC-HEAD-7A31",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81897,
+        "total_prompt_tokens": 30608,
+        "total_output_tokens": 77,
+        "requests": [
+          {
+            "active_chars": 81897,
+            "input_tokens": 16,
+            "output_tokens": 77,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-HEAD-7A31",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 4972,
+        "total_prompt_tokens": 2270,
+        "total_output_tokens": 297,
+        "requests": [
+          {
+            "active_chars": 4972,
+            "input_tokens": 222,
+            "output_tokens": 297,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-result-middle",
+      "kind": "large_tool_result",
+      "repetition": 2,
+      "expected": "KC-MIDDLE-7F19",
+      "baseline": {
+        "answer": "KC-MIDDLE-7F19",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81903,
+        "total_prompt_tokens": 30608,
+        "total_output_tokens": 44,
+        "requests": [
+          {
+            "active_chars": 81903,
+            "input_tokens": 16,
+            "output_tokens": 44,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-MIDDLE-7F19",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 2,
+        "tool_calls": 1,
+        "first_request_chars": 4978,
+        "total_prompt_tokens": 12292,
+        "total_output_tokens": 139,
+        "requests": [
+          {
+            "active_chars": 4978,
+            "input_tokens": 217,
+            "output_tokens": 130,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 26044,
+            "input_tokens": 7723,
+            "output_tokens": 9,
+            "cache_read_tokens": 2304,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-result-tail",
+      "kind": "large_tool_result",
+      "repetition": 2,
+      "expected": "KC-TAIL-4D82",
+      "baseline": {
+        "answer": "KC-TAIL-4D82",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81897,
+        "total_prompt_tokens": 30609,
+        "total_output_tokens": 50,
+        "requests": [
+          {
+            "active_chars": 81897,
+            "input_tokens": 17,
+            "output_tokens": 50,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-TAIL-4D82",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 2,
+        "tool_calls": 1,
+        "first_request_chars": 4971,
+        "total_prompt_tokens": 8811,
+        "total_output_tokens": 117,
+        "requests": [
+          {
+            "active_chars": 4971,
+            "input_tokens": 226,
+            "output_tokens": 95,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 16525,
+            "input_tokens": 4233,
+            "output_tokens": 22,
+            "cache_read_tokens": 2304,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-error-middle",
+      "kind": "large_tool_error",
+      "repetition": 2,
+      "expected": "KC-ROOT-CAUSE-9C44",
+      "baseline": {
+        "answer": "KC-ROOT-CAUSE-9C44",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81921,
+        "total_prompt_tokens": 30611,
+        "total_output_tokens": 45,
+        "requests": [
+          {
+            "active_chars": 81921,
+            "input_tokens": 19,
+            "output_tokens": 45,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-ROOT-CAUSE-9C44",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 2,
+        "tool_calls": 1,
+        "first_request_chars": 4989,
+        "total_prompt_tokens": 12300,
+        "total_output_tokens": 189,
+        "requests": [
+          {
+            "active_chars": 4989,
+            "input_tokens": 215,
+            "output_tokens": 141,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 26097,
+            "input_tokens": 7733,
+            "output_tokens": 48,
+            "cache_read_tokens": 2304,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "stale-reads-latest-wins",
+      "kind": "stale_duplicate_results",
+      "repetition": 2,
+      "expected": "KC-CONFIG-V7",
+      "baseline": {
+        "answer": "KC-CONFIG-V7",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 87180,
+        "total_prompt_tokens": 32553,
+        "total_output_tokens": 89,
+        "requests": [
+          {
+            "active_chars": 87180,
+            "input_tokens": 41,
+            "output_tokens": 89,
+            "cache_read_tokens": 32512,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-CONFIG-V7",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 14117,
+        "total_prompt_tokens": 5598,
+        "total_output_tokens": 242,
+        "requests": [
+          {
+            "active_chars": 14117,
+            "input_tokens": 94,
+            "output_tokens": 242,
+            "cache_read_tokens": 5504,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": false,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "current-request-survives-noise",
+      "kind": "current_request",
+      "repetition": 2,
+      "expected": "323",
+      "baseline": {
+        "answer": "323",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 87173,
+        "total_prompt_tokens": 32544,
+        "total_output_tokens": 126,
+        "requests": [
+          {
+            "active_chars": 87173,
+            "input_tokens": 32,
+            "output_tokens": 126,
+            "cache_read_tokens": 32512,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "323",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 14100,
+        "total_prompt_tokens": 5590,
+        "total_output_tokens": 73,
+        "requests": [
+          {
+            "active_chars": 14100,
+            "input_tokens": 86,
+            "output_tokens": 73,
+            "cache_read_tokens": 5504,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": false,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-result-head",
+      "kind": "large_tool_result",
+      "repetition": 3,
+      "expected": "KC-HEAD-7A31",
+      "baseline": {
+        "answer": "KC-HEAD-7A31",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81897,
+        "total_prompt_tokens": 30608,
+        "total_output_tokens": 70,
+        "requests": [
+          {
+            "active_chars": 81897,
+            "input_tokens": 16,
+            "output_tokens": 70,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-HEAD-7A31",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 4972,
+        "total_prompt_tokens": 2270,
+        "total_output_tokens": 51,
+        "requests": [
+          {
+            "active_chars": 4972,
+            "input_tokens": 222,
+            "output_tokens": 51,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-result-middle",
+      "kind": "large_tool_result",
+      "repetition": 3,
+      "expected": "KC-MIDDLE-7F19",
+      "baseline": {
+        "answer": "KC-MIDDLE-7F19",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81903,
+        "total_prompt_tokens": 30608,
+        "total_output_tokens": 57,
+        "requests": [
+          {
+            "active_chars": 81903,
+            "input_tokens": 16,
+            "output_tokens": 57,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-MIDDLE-7F19",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 2,
+        "tool_calls": 1,
+        "first_request_chars": 4978,
+        "total_prompt_tokens": 12287,
+        "total_output_tokens": 134,
+        "requests": [
+          {
+            "active_chars": 4978,
+            "input_tokens": 217,
+            "output_tokens": 125,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 26023,
+            "input_tokens": 7718,
+            "output_tokens": 9,
+            "cache_read_tokens": 2304,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-result-tail",
+      "kind": "large_tool_result",
+      "repetition": 3,
+      "expected": "KC-TAIL-4D82",
+      "baseline": {
+        "answer": "KC-TAIL-4D82",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81897,
+        "total_prompt_tokens": 30609,
+        "total_output_tokens": 36,
+        "requests": [
+          {
+            "active_chars": 81897,
+            "input_tokens": 17,
+            "output_tokens": 36,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-TAIL-4D82",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 2,
+        "tool_calls": 1,
+        "first_request_chars": 4971,
+        "total_prompt_tokens": 8811,
+        "total_output_tokens": 104,
+        "requests": [
+          {
+            "active_chars": 4971,
+            "input_tokens": 226,
+            "output_tokens": 95,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 16525,
+            "input_tokens": 4233,
+            "output_tokens": 9,
+            "cache_read_tokens": 2304,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "large-error-middle",
+      "kind": "large_tool_error",
+      "repetition": 3,
+      "expected": "KC-ROOT-CAUSE-9C44",
+      "baseline": {
+        "answer": "KC-ROOT-CAUSE-9C44",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 81921,
+        "total_prompt_tokens": 30611,
+        "total_output_tokens": 121,
+        "requests": [
+          {
+            "active_chars": 81921,
+            "input_tokens": 19,
+            "output_tokens": 121,
+            "cache_read_tokens": 30592,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-ROOT-CAUSE-9C44",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 2,
+        "tool_calls": 1,
+        "first_request_chars": 4989,
+        "total_prompt_tokens": 12288,
+        "total_output_tokens": 165,
+        "requests": [
+          {
+            "active_chars": 4989,
+            "input_tokens": 215,
+            "output_tokens": 129,
+            "cache_read_tokens": 2048,
+            "cache_creation_tokens": 0
+          },
+          {
+            "active_chars": 26037,
+            "input_tokens": 7721,
+            "output_tokens": 36,
+            "cache_read_tokens": 2304,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": true,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "stale-reads-latest-wins",
+      "kind": "stale_duplicate_results",
+      "repetition": 3,
+      "expected": "KC-CONFIG-V7",
+      "baseline": {
+        "answer": "KC-CONFIG-V7",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 87180,
+        "total_prompt_tokens": 32553,
+        "total_output_tokens": 1622,
+        "requests": [
+          {
+            "active_chars": 87180,
+            "input_tokens": 41,
+            "output_tokens": 1622,
+            "cache_read_tokens": 32512,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "KC-CONFIG-V7",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 14117,
+        "total_prompt_tokens": 5598,
+        "total_output_tokens": 36,
+        "requests": [
+          {
+            "active_chars": 14117,
+            "input_tokens": 94,
+            "output_tokens": 36,
+            "cache_read_tokens": 5504,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": true,
+      "managed_expected_in_artifact": false,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    },
+    {
+      "case_id": "current-request-survives-noise",
+      "kind": "current_request",
+      "repetition": 3,
+      "expected": "323",
+      "baseline": {
+        "answer": "323",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 87173,
+        "total_prompt_tokens": 32544,
+        "total_output_tokens": 26,
+        "requests": [
+          {
+            "active_chars": 87173,
+            "input_tokens": 32,
+            "output_tokens": 26,
+            "cache_read_tokens": 32512,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed": {
+        "answer": "323",
+        "exact_match": true,
+        "contains_expected": true,
+        "status": "success",
+        "reason": null,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "first_request_chars": 14100,
+        "total_prompt_tokens": 5590,
+        "total_output_tokens": 64,
+        "requests": [
+          {
+            "active_chars": 14100,
+            "input_tokens": 86,
+            "output_tokens": 64,
+            "cache_read_tokens": 5504,
+            "cache_creation_tokens": 0
+          }
+        ]
+      },
+      "managed_expected_visible": false,
+      "managed_expected_in_artifact": false,
+      "managed_recoverable_offline": true,
+      "managed_tool_pairs_balanced": true
+    }
+  ],
+  "limitations": [
+    "Synthetic needle-retrieval questions measure context retention, not coding-task success.",
+    "This is a small synthetic A/B; broader coding tasks are still required to claim general task-success improvement.",
+    "Total prompt tokens include any read_artifact recovery calls, not only the first request."
+  ]
+}

@@ -14,6 +14,7 @@ class ReadArtifactParams(BaseModel):
     path: str
     offset: int = Field(default=0, ge=0)
     max_chars: int = Field(default=20_000, ge=1, le=100_000)
+    query: str = Field(default="", max_length=1_000)
 
 
 class ReadArtifactTool(BaseTool):
@@ -23,7 +24,8 @@ class ReadArtifactTool(BaseTool):
     name = "read_artifact"
     description = (
         "Read a bounded slice of a large tool result previously externalized as an "
-        "artifact. Only files from the current run's artifact directory are accessible."
+        "artifact. Pass query to center the slice around a fact when its offset is "
+        "unknown. Only files from the current run's artifact directory are accessible."
     )
     input_schema: dict[str, object] = {
         "type": "object",
@@ -31,6 +33,13 @@ class ReadArtifactTool(BaseTool):
             "path": {"type": "string", "description": "Artifact path from a tool result."},
             "offset": {"type": "integer", "minimum": 0},
             "max_chars": {"type": "integer", "minimum": 1, "maximum": 100000},
+            "query": {
+                "type": "string",
+                "description": (
+                    "Optional case-insensitive text to locate. When present, offset is "
+                    "ignored and the returned slice is centered on the first match."
+                ),
+            },
         },
         "required": ["path"],
     }
@@ -44,9 +53,22 @@ class ReadArtifactTool(BaseTool):
         if path.suffix != ".txt":
             raise PermissionError("only artifact text payloads may be read")
         content = path.read_text(encoding="utf-8", errors="replace")
-        end = min(len(content), params.offset + params.max_chars)
-        chunk = content[params.offset:end]
-        header = f"[artifact chars {params.offset}:{end} of {len(content)}]"
+        start = params.offset
+        if params.query:
+            match_at = content.casefold().find(params.query.casefold())
+            if match_at < 0:
+                return ToolResult(
+                    content=f"Query not found in artifact: {params.query}",
+                    is_error=True,
+                    error_type="not_found",
+                )
+            start = max(0, match_at - params.max_chars // 2)
+
+        end = min(len(content), start + params.max_chars)
+        chunk = content[start:end]
+        header = f"[artifact chars {start}:{end} of {len(content)}]"
+        if params.query:
+            header += f" [query={params.query!r}]"
         suffix = "\n[more available]" if end < len(content) else ""
         return ToolResult(content=f"{header}\n{chunk}{suffix}")
 

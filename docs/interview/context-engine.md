@@ -107,7 +107,8 @@ Agent 长任务中，每次 step 都把工具结果和 LLM 回复追加到 messa
 | `test_context_engine.py::test_tool_artifact_threshold_tightens_as_context_fills` | context_pct 越高，artifact threshold 越低（更激进外置） |
 | `test_tool_artifacts.py::test_large_tool_output_is_persisted_and_replaced_by_reference` | 大结果外置为文件，上下文只留引用 |
 | `test_tool_artifacts.py::test_small_tool_output_stays_inline` | 小结果不外置 |
-| `test_tool_artifacts.py::test_hundred_thousand_character_output_reduces_by_over_ninety_percent` | 10万字符 → 缩减 95.7% |
+| `test_tool_artifacts.py::test_hundred_thousand_character_output_reduces_by_over_ninety_percent` | 10 万字符压力测试验证载荷缩减 95% 以上；这是资源指标，不证明回答质量 |
+| `evals.context_quality_eval` | 6 类问答重复 3 轮：Exact Match `100% → 100%`，累计 Prompt Token `562,599 → 146,022`（`-74.05%`） |
 | `test_budget.py` | budget/snip 的 token 估算和字符截断 |
 | `test_compactor.py` | 摘要 prompt 格式、文本序列化、summary 写入 |
 
@@ -129,8 +130,8 @@ Agent 长任务中，每次 step 都把工具结果和 LLM 回复追加到 messa
 
 ### Q2：Artifact 保存了什么，模型上下文留下什么？
 - **保存**：完整工具结果写入 `artifacts/<tool>-<id>.txt` + `.json` 元数据（bytes、sha256）。
-- **上下文留下**：前/后各 2K 字符预览 + `"[large tool result stored as artifact]"` + 路径 + sha256 + 提示用 `read_file` 读完整内容。
-- 错误结果**不外置**。
+- **上下文留下**：前/后各 2K 字符预览 + `"[large tool result stored as artifact]"` + 路径 + sha256 + 提示用 `read_artifact` 按 query 或范围补取。
+- 超限的成功结果和错误结果都会外置，并保留 `is_error/error_type` 语义。
 
 ### Q3：什么工具结果会被判定为陈旧？
 - **只清理 7 种可重算工具**：`bash`、`grep_search`、`list_dir`、`list_files`、`read_file`、`run_shell`、`search`。

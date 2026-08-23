@@ -46,7 +46,7 @@ search_text → read_file → edit_file/write_file → bash验证 → 复查差�
 
 ## Artifact 专用读取
 
-大型工具结果外置在 Run 目录，不属于项目 Workspace。普通 `read_file` 不应为取回 Artifact 而放宽边界，因此提供 `read_artifact`：它只能访问当前 Run 的 Artifact 目录，并通过 `offset + max_chars` 分页读取。这样完整信息可恢复，又不会一次读回后再次撑爆上下文。
+大型工具结果外置在 Run 目录，不属于项目 Workspace。普通 `read_file` 不应为取回 Artifact 而放宽边界，因此提供 `read_artifact`：它只能访问当前 Run 的 Artifact 目录；已知位置时通过 `offset + max_chars` 分页读取，未知位置时可用 `query` 将窗口定位到首个匹配项。这样完整信息可恢复，又不会为了寻找中部事实把整个 Artifact 再次塞回上下文。
 
 ## 验证
 

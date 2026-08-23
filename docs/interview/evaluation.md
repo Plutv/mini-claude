@@ -8,7 +8,7 @@
 | 层 | 位置 | 本质 | 跑不跑真实模型 |
 |---|---|---|---|
 | 1. 轨迹评测 + 故障注入 | `src/kama_claude/core/eval/` | 离线、单 run 的事件重放分析 | 否（分析已发生的 run） |
-| 2. 系统能力 + 任务数据集 | `evals/` | 确定性机制评测 + 编码任务 harness | 部分否（system_eval 不调模型）；harness 跑模型但尚无真实结果 |
+| 2. 系统能力 + 任务数据集 | `evals/` | 确定性机制评测 + 上下文质量 A/B + 编码任务 harness | 部分（context_quality 调真实模型；system_eval 不调模型） |
 
 ---
 
@@ -37,9 +37,9 @@
 
 ### `system_eval.py` — 确定性系统能力评测（**不调真实模型**）
 - 直接构造合成 fixture，调用 Runtime 内部组件（ContextEngine、MemoryStore、SessionStore、ToolArtifactStore），断言行为正确。
-- 3 个 suite、11 个 case，**最新运行 `evals/results/system_eval_latest.json`（2026-08-21, commit `bd89474`, dirty）：11/11 通过，pass_rate 1.0。**
+- 4 个 suite、15 个 case，**最新运行 `evals/results/system_eval_latest.json`（2026-08-24, commit `77dcc7c`, clean）：15/15 通过，pass_rate 1.0。**
 - `context`（3 case）：
-  - `large-success` / `large-error`：10 万字符结果外置为 artifact，校验 sha256 一致、错误语义保留、上下文载荷缩减 ~95.7%。
+  - `large-success` / `large-error`：10 万字符结果外置为 artifact，校验 sha256 一致、错误语义保留、上下文载荷缩减 ~95.7%；该数字只说明资源缩减，不说明回答质量。
   - `layered-maintenance`：8 次工具历史下跑 ContextEngine，断言 `after < before`（缩减 85.56%）、当前请求被保留、`tool_pairs_balanced`、确实发生了 budget/microcompact。
 - `memory`（3 case）：
   - `selective-retrieval`：5 条记忆召回，`Hit@1=1.0`、`Hit@3=1.0`、scope 零越界（跨 scope 不串）。
@@ -51,6 +51,13 @@
   - `atomic-replace-failure`：注入 `os.replace` 失败，断言旧快照保留、无 `.tmp` 泄漏。
   - `broken-jsonl-tail`：尾部截断的坏行被跳过，有效消息完整恢复。
   - `orphan-tool-use-tail`：孤立 `tool_use`（无配对 `tool_result`）被裁剪，配对仍平衡。
+
+### `context_quality_eval.py` — 真实模型上下文保真 A/B
+
+- 6 类问答分别覆盖大结果头/中/尾、长错误中部、重复读取最新结果，以及噪声后的当前请求。
+- 中部答案治理后不在活跃消息中，只存在 Artifact；模型必须用 `read_artifact(query=...)` 补取。
+- `deepseek-v4-flash` 每类重复 3 次，共 18 组：Exact Match `100% → 100%`，累计 Prompt Token `562,599 → 146,022`（`-74.05%`）。
+- Token 包含 Artifact 补取的额外模型轮次，衡量端到端开销；它仍是合成保真测试，不代表编码任务成功率提升。
 
 ### `harness.py` — 编码任务数据集（准备给真实 Agent 跑）
 - 本地数据集 `datasets/local_v1/`，**6 个 case**：`config-precedence`、`async-pending-cleanup`、`idempotent-retry`、`jsonl-tail-recovery`、`rpc-response-routing`、`workspace-path-guard`（前 4 个 dev 划分、后 2 个 holdout 划分）。

@@ -31,3 +31,34 @@ async def test_read_artifact_rejects_non_payload_and_escape(tmp_path: Path) -> N
         await tool.invoke({"path": "metadata.json"})
     with pytest.raises(PermissionError):
         await tool.invoke({"path": str(outside)})
+
+
+async def test_read_artifact_finds_fact_when_offset_is_unknown(tmp_path: Path) -> None:
+    artifact = tmp_path / "bash-call.txt"
+    artifact.write_text(
+        "x" * 10_000 + "\nRECOVERY_CODE=KC-MIDDLE-7F19\n" + "y" * 10_000,
+        encoding="utf-8",
+    )
+    tool = ReadArtifactTool(tmp_path)
+
+    result = await tool.invoke(
+        {
+            "path": str(artifact),
+            "query": "RECOVERY_CODE",
+            "max_chars": 200,
+        }
+    )
+
+    assert "RECOVERY_CODE=KC-MIDDLE-7F19" in result.content
+    assert "query='RECOVERY_CODE'" in result.content
+
+
+async def test_read_artifact_reports_missing_query(tmp_path: Path) -> None:
+    artifact = tmp_path / "bash-call.txt"
+    artifact.write_text("known content", encoding="utf-8")
+    tool = ReadArtifactTool(tmp_path)
+
+    result = await tool.invoke({"path": str(artifact), "query": "missing"})
+
+    assert result.is_error is True
+    assert result.error_type == "not_found"

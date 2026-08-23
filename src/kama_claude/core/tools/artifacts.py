@@ -86,7 +86,8 @@ class ToolArtifactStore:
             f"path: {artifact.resolve()}\n"
             f"bytes: {len(encoded)}\n"
             f"sha256: {digest}\n"
-            "Use read_artifact with this path and a bounded range if more detail is required."
+            "Use read_artifact with this path and query text (preferred), or a bounded "
+            "offset range, if more detail is required."
         )
         return ToolResult(
             content=reference,

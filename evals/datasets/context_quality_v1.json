@@ -1,0 +1,44 @@
+[
+  {
+    "id": "large-result-head",
+    "kind": "large_tool_result",
+    "placement": "head",
+    "expected": "KC-HEAD-7A31",
+    "payload_chars": 80000
+  },
+  {
+    "id": "large-result-middle",
+    "kind": "large_tool_result",
+    "placement": "middle",
+    "expected": "KC-MIDDLE-7F19",
+    "payload_chars": 80000
+  },
+  {
+    "id": "large-result-tail",
+    "kind": "large_tool_result",
+    "placement": "tail",
+    "expected": "KC-TAIL-4D82",
+    "payload_chars": 80000
+  },
+  {
+    "id": "large-error-middle",
+    "kind": "large_tool_error",
+    "placement": "middle",
+    "expected": "KC-ROOT-CAUSE-9C44",
+    "payload_chars": 80000
+  },
+  {
+    "id": "stale-reads-latest-wins",
+    "kind": "stale_duplicate_results",
+    "expected": "KC-CONFIG-V7",
+    "tool_results": 7,
+    "result_chars": 12000
+  },
+  {
+    "id": "current-request-survives-noise",
+    "kind": "current_request",
+    "expected": "323",
+    "tool_results": 7,
+    "result_chars": 12000
+  }
+]

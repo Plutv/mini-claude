@@ -41,6 +41,9 @@ uv run ruff check src tests evals
 uv run mypy src
 uv run pytest -q
 uv run python -m evals.system_eval
+uv run python -m evals.context_quality_eval
+# 调用当前配置的真实模型做 3 轮完整上下文 / 治理后 A/B
+uv run python -m evals.context_quality_eval --live --repetitions 3
 ```
 
 ## 文档
@@ -48,3 +51,4 @@ uv run python -m evals.system_eval
 - **[RUNBOOK.md](./RUNBOOK.md)** — 完整操作参考：配置、开发命令、故障排查
 - **[WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md)** — IPC 协议定义（由代码生成，勿手动编辑）
 - **[docs/workspace-and-tools.md](./docs/workspace-and-tools.md)** — Workspace 隔离与结构化工具设计
+- **[evals/context-quality.md](./evals/context-quality.md)** — 上下文回答质量 A/B 设计与实跑结果

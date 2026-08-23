@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "evaluation_kind": "offline_context_recoverability",
+  "generated_at": "2026-08-23T17:47:45.659586+00:00",
+  "summary": {
+    "cases": 6,
+    "passed": 6
+  },
+  "cases": [
+    {
+      "case_id": "large-result-head",
+      "expected_visible": true,
+      "expected_in_artifact": true,
+      "recoverable": true,
+      "tool_pairs_balanced": true,
+      "retrieval_boundary_valid": true,
+      "passed": true
+    },
+    {
+      "case_id": "large-result-middle",
+      "expected_visible": false,
+      "expected_in_artifact": true,
+      "recoverable": true,
+      "tool_pairs_balanced": true,
+      "retrieval_boundary_valid": true,
+      "passed": true
+    },
+    {
+      "case_id": "large-result-tail",
+      "expected_visible": true,
+      "expected_in_artifact": true,
+      "recoverable": true,
+      "tool_pairs_balanced": true,
+      "retrieval_boundary_valid": true,
+      "passed": true
+    },
+    {
+      "case_id": "large-error-middle",
+      "expected_visible": false,
+      "expected_in_artifact": true,
+      "recoverable": true,
+      "tool_pairs_balanced": true,
+      "retrieval_boundary_valid": true,
+      "passed": true
+    },
+    {
+      "case_id": "stale-reads-latest-wins",
+      "expected_visible": true,
+      "expected_in_artifact": false,
+      "recoverable": true,
+      "tool_pairs_balanced": true,
+      "retrieval_boundary_valid": true,
+      "passed": true
+    },
+    {
+      "case_id": "current-request-survives-noise",
+      "expected_visible": false,
+      "expected_in_artifact": false,
+      "recoverable": true,
+      "tool_pairs_balanced": true,
+      "retrieval_boundary_valid": true,
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "This mode proves facts remain visible or recoverable from an artifact; it does not prove a model will retrieve them. Use --live for answer quality."
+  ]
+}
