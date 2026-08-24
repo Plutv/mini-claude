@@ -18,7 +18,7 @@
 ### `BaseTool`（base.py）
 - 字段：`name`、`description`、`input_schema`（Anthropic 格式 dict）、`params_model`（Pydantic，可选）、`parallel_safe: bool = False`。
 - 唯一方法：`async def invoke(params) -> ToolResult`。
-- **`parallel_safe` 是关键设计**：默认 `False`。只有声明"无副作用、可并发"的工具才置 `True`。当前内置工具里**只有 `read_file` 是 `True`**。`write_file`/`bash`/`list_dir` 都有副作用或不确定结果，必须串行。
+- **`parallel_safe` 是关键设计**：默认 `False`。只有声明"无副作用、可并发"的工具才置 `True`。当前内置工具里 `read_file`、`grep_search`、`git_diff` 是 `True`（均只读）；`write_file`/`bash`/`list_dir`/`apply_patch`/`run_tests` 都有副作用或不确定结果，必须串行。
 
 ### `ToolResult`（base.py）
 - `content: str`、`is_error: bool`、`error_type: str | None`。
@@ -78,6 +78,18 @@
 
 ### G. 外部 MCP（动态）
 - `McpTool`：把任意 MCP server 的工具适配进本地 `ToolRegistry`，命名为 `{server}__{tool}`；`parallel_safe = tool_def.read_only_hint`；调用异常统一降级为 `ToolResult(is_error=True)`（server 不可用 / 工具报错 / 意外错误三类）。
+
+### H. 编码主闭环（4 个，组成 Locate→Read→Patch→Verify→Review）
+把"改代码"做成一条可面试讲清楚的专业闭环：
+| 工具 | 作用 | 实现要点 |
+|---|---|---|
+| `grep_search` | 在 workspace 内按正则定位代码（Locate） | 优先 `rg --json`，无 rg 回退纯 Python；返回结构化匹配（path/line/text/is_match）；`parallel_safe=True`（只读） |
+| `apply_patch` | 按统一 diff 或 search/replace 改文件（Patch） | `_apply_unified_diff` 解析 hunk + `edits` 模式；接 `FileVersionTracker` 冲突检测与原子写盘；返回 applied/failed hunk 数 |
+| `run_tests` | 跑测试验证改动（Verify） | asyncio 子进程跑命令（默认 pytest），纯函数解析 passed/failed；返回结构化 summary |
+| `git_diff` | 出 diff 并做安全审查（Review） | 调 `git diff [--staged]`；启发式查泄露密钥 / 残留断点 / 大范围纯空白改动 / 无关文件过多 |
+
+- 四个工具全部复用 `BaseTool` + `invoke_tool` 框架，注册进 `runner._build_registry`（带 `_ok` 白名单守卫）。
+- 面试讲法：感知（grep）→ 修改（apply_patch）→ 验证（run_tests）→ 控制（git_diff 审查），比"整文件覆盖 + bash 跑测试"更专业、更可控。
 
 ---
 
