@@ -36,12 +36,16 @@ from kama_claude.core.task.manager import TaskManager
 from kama_claude.core.tools.artifacts import ToolArtifactStore
 from kama_claude.core.tools.base import ToolResult
 from kama_claude.core.tools.builtin import (
+    ApplyPatchTool,
     BashTool,
     EditFileTool,
+    GitDiffTool,
+    GrepSearchTool,
     ListDirTool,
     NoteSaveTool,
     ReadArtifactTool,
     ReadFileTool,
+    RunTestsTool,
     SearchTextTool,
     TaskCreateTool,
     TaskGetTool,
@@ -142,6 +146,14 @@ class AgentRunner:
             WriteFileTool(file_versions, workspace),
             EditFileTool(file_versions, workspace),
             ListDirTool(workspace),
+        ]:
+            if _ok(t.name):
+                registry.register(t)
+        for t in [
+            GrepSearchTool(workspace),
+            ApplyPatchTool(file_versions, workspace),
+            RunTestsTool(workspace),
+            GitDiffTool(workspace),
         ]:
             if _ok(t.name):
                 registry.register(t)
