@@ -32,6 +32,25 @@ uv run kama ping            # 验证连通：应返回 pong
 uv run kama --version       # 应输出 0.0.1
 ```
 
+使用无需 API Key 的 Ollama 服务器，或和 Anthropic API 来回切换：
+
+```bash
+# 方式一（推荐）：一份文件同时含 anthropic + ollama，放到默认位置后永远只敲这一条
+cp examples/multi.toml ~/.kama/config.toml
+uv run kama core start
+uv run kama chat          # 会话里 /model ollama 切本地，/model anthropic 切 API
+
+# 方式二：临时用某份配置（路径不存在会直接报错，不再静默回退）
+uv run kama-core --config examples/ollama.toml
+uv run kama core start -c examples/ollama.toml
+```
+
+更完整的用法、运行时 `/model` 切换、配置文件优先级，见
+**[docs/model-switching.md](./docs/model-switching.md)**。
+
+示例配置（`examples/ollama.toml` 默认连接 `192.168.1.130:11434` 的 `qwen3.8:27b`）
+如模型或地址变化，直接修改对应 `examples/*.toml` 即可。
+
 客户端从哪个目录创建 Session，该目录就会成为持久化 Workspace。恢复 Session 后仍沿用原 Workspace，文件工具和子 Agent 不会退回到 `kama-core` 的启动目录。
 
 ## 质量验证
@@ -49,6 +68,7 @@ uv run python -m evals.context_quality_eval --live --repetitions 3
 ## 文档
 
 - **[RUNBOOK.md](./RUNBOOK.md)** — 完整操作参考：配置、开发命令、故障排查
+- **[docs/model-switching.md](./docs/model-switching.md)** — 运行时 `/model` 切换与简化启动（API Key / Ollama 共存）
 - **[WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md)** — IPC 协议定义（由代码生成，勿手动编辑）
 - **[docs/workspace-and-tools.md](./docs/workspace-and-tools.md)** — Workspace 隔离与结构化工具设计
 - **[evals/context-quality.md](./evals/context-quality.md)** — 上下文回答质量 A/B 设计与实跑结果

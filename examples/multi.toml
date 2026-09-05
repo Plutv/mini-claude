@@ -1,0 +1,46 @@
+# 多 provider 配置：一次启动，运行时用 /model 在 anthropic 与 ollama 之间切换。
+#
+# 用法（任选其一，详见 docs/model-switching.md）：
+#   1) 放到默认位置，之后无需任何环境变量：
+#        cp examples/multi.toml ~/.kama/config.toml
+#        kama core start
+#        kama chat            # 会话里输入 /model 查看/切换
+#   2) 显式指定路径：
+#        kama-core --config examples/multi.toml
+#        kama core start -c examples/multi.toml
+#
+# 关键点：provider 客户端是延迟初始化的。即使本机没设 ANTHROPIC_API_KEY，
+# 只要当前走的是 ollama，daemon 也能正常启动；只有真正 /model anthropic
+# 时才会因为没有 key 报错。反之亦然。
+
+[llm]
+router = "static"
+
+# 默认走 anthropic（API_KEY）。想开机默认走 ollama，把这里改成 "ollama"。
+default_provider = "anthropic"
+
+# 主 provider 报错时自动回退的候选（仅在未用 /model 显式锁定时生效）
+fallback_providers = ["ollama"]
+
+# ---------------------------------------------------------------------------
+# provider 1：Anthropic 官方 API
+# ---------------------------------------------------------------------------
+[[llm.providers]]
+name = "anthropic"
+kind = "anthropic"
+model = "claude-sonnet-4-6"
+# api_key_env 指向存放密钥的环境变量名；为空串时 provider 不校验 key（本地模型用）
+api_key_env = "ANTHROPIC_API_KEY"
+context_window = 200000
+
+# ---------------------------------------------------------------------------
+# provider 2：本地 Ollama（OpenAI 兼容接口）
+# ---------------------------------------------------------------------------
+[[llm.providers]]
+name = "ollama"
+kind = "openai_compatible"
+model = "qwen3.8:27b"
+base_url = "http://192.168.1.130:11434/v1"
+# ollama 不需要 key，留空即跳过校验
+api_key_env = ""
+context_window = 262144

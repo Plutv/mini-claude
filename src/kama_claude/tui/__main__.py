@@ -43,7 +43,13 @@ def main() -> None:
 
     config = get_config()
     _setup_logging(config.logging.level)
-    app = KamaTuiApp(config.host, config.port, replay_run_id=args.replay)
+    model_options = [p.name for p in config.llm.providers] + ["auto"]
+    app = KamaTuiApp(
+        config.host,
+        config.port,
+        replay_run_id=args.replay,
+        model_options=model_options,
+    )
     app.run()
 
 

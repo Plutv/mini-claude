@@ -15,6 +15,7 @@ _DECISION_MAP: dict[str, str] = {
     "n": "deny_once",
     "d": "always_deny",
 }
+_EXIT_COMMANDS = {"/quit", "/exit", "/q"}
 
 
 # Importing readline enables cursor movement and command-line editing for
@@ -60,6 +61,9 @@ class ChatPrinter:
             print(f"[permission] {tool_name}  {param_preview}")
             print("  y=allow once  a=always allow  n=deny once  d=always deny")
             self.pending_permission_id = tool_use_id
+        elif t == "session.notice":
+            self._ensure_newline()
+            print(event.get("message", ""))
         elif t == "session.waiting_for_input":
             self._ensure_newline()
             self.pending_permission_id = None
@@ -140,6 +144,14 @@ async def _chat_async(
                 continue
 
             # 有待审批的权限请求时，将用户输入解释为决策而非聊天消息
+            if content.lower() in _EXIT_COMMANDS:
+                print("[chat ended]")
+                try:
+                    await client.send_command("session.close", {"session_id": session_id})
+                except (IpcError, RuntimeError, OSError):
+                    pass
+                break
+
             if printer.pending_permission_id:
                 decision = _DECISION_MAP.get(content.lower())
                 if decision is None:

@@ -141,6 +141,15 @@ class SessionClosedEvent(BaseModel):
     ts: str
 
 
+class SessionNoticeEvent(BaseModel):
+    """非 LLM 产出的系统提示（如 /model 切换结果），客户端直接展示。"""
+
+    type: Literal["session.notice"] = "session.notice"
+    session_id: str
+    message: str
+    ts: str
+
+
 class ContextCompactedEvent(BaseModel):
     type: Literal["context.compacted"] = "context.compacted"
     session_id: str

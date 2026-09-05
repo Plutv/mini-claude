@@ -5,10 +5,28 @@
 ### 启动守护进程
 
 ```bash
+uv run kama core start          # 官方封装：后台启动并记录 PID 文件
+# 或等价地：
 uv run kama-core
 ```
 
 默认监听 `127.0.0.1:7437`，按 `Ctrl+C` 优雅退出。
+
+配置文件优先级（低 → 高）：**内建默认值 → `--config` 显式路径 → `KAMA_CONFIG` 环境变量 → `~/.kama/config.toml`**。
+显式指定但文件不存在时**直接报错退出**，不再静默回退默认值（避免误用错配置）。
+推荐把日常配置放到 `~/.kama/config.toml`（见 [docs/model-switching.md](./docs/model-switching.md)）。
+
+```bash
+uv run kama-core --config /abs/path/to.toml     # 临时换配置
+uv run kama core start -c /abs/path/to.toml      # 后台启动 + 临时换配置
+```
+
+启动日志会打印实际配置来源与可用模型：
+
+```
+config source: /home/user/.kama/config.toml
+models: default=anthropic available=anthropic, ollama, auto  (use /model to switch)
+```
 
 ### 验证连通
 
@@ -25,9 +43,30 @@ kill $(pgrep -f kama-core)
 
 ---
 
+## 运行时切换模型（/model）
+
+只要配置里含多个 `[[llm.providers]]`（daemon 启动日志会显示 `models: ...`），即可在
+`kama chat` / TUI 会话里运行时切换，无需重启：
+
+| 命令 | 效果 |
+|------|------|
+| `/model` | 列出当前模型与全部可选项，标出当前项（`*`） |
+| `/model ollama` | 切到 ollama（本地）；`/model anthropic` 切回 API |
+| `/model auto` | 恢复配置默认 provider 并重新启用 fallback |
+| `/model list` / `/model ls` | 等同 `/model` |
+
+- 切换是内存态，**不写文件**，重启后回到 `default_provider`。
+- 显式 `/model <name>` 后进入锁定态：该 provider 失败直接报错，不再静默回退；
+  `/model auto` 解除锁定。
+- 单 provider 配置下 `/model` 会提示 `model switching unavailable`。
+
+详细设计与延迟初始化（lazy init）说明见 [docs/model-switching.md](./docs/model-switching.md)。
+
+---
+
 ## 配置
 
-优先级（低 → 高）：**内建默认值 → `~/.kama/config.toml` → `.env` → 系统环境变量**。
+优先级（低 → 高）：**内建默认值 → `~/.kama/config.toml` → `KAMA_CONFIG` 环境变量 → `--config` 显式路径**。
 
 ### `~/.kama/config.toml`
 
@@ -54,7 +93,7 @@ cp .env.example .env
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `KAMA_CONFIG` | `~/.kama/config.toml` | 覆盖配置文件路径 |
+| `KAMA_CONFIG` | `~/.kama/config.toml` | 覆盖配置文件路径（低于 `--config` 显式路径；文件不存在直接报错） |
 | `KAMA_HOST` | `127.0.0.1` | TCP 监听地址 |
 | `KAMA_PORT` | `7437` | TCP 监听端口 |
 | `KAMA_LOG_LEVEL` | `INFO` | 日志级别（DEBUG / INFO / WARNING / ERROR） |

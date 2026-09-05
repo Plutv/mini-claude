@@ -42,6 +42,7 @@ from kama_claude.core.bus.envelope import EventPushEnvelope
 from kama_claude.core.config import KamaConfig, get_config
 from kama_claude.core.events.bus import EventBus
 from kama_claude.core.llm.factory import build_provider
+from kama_claude.core.llm.router import ProviderRouter
 from kama_claude.core.logging_setup import setup_logging
 from kama_claude.core.mcp.server import McpServerManager
 from kama_claude.core.memory import MemoryStore
@@ -64,7 +65,9 @@ def _now() -> str:
 
 
 class CoreApp:
-    def __init__(self) -> None:
+    # config_path 为显式指定的配置文件路径（对应 --config），None 时走默认查找
+    def __init__(self, config_path: Path | None = None) -> None:
+        self._config_path = config_path
         self._start_time = time.monotonic()
         self._bus = EventBus()
         self._broadcaster: IpcEventBroadcaster | None = None
@@ -263,7 +266,8 @@ class CoreApp:
     # 启动守护进程：加载配置、初始化日志、启动 trace、启动 TCP 服务器，并等待退出信号
     async def run(self) -> None:
         self._start_time = time.monotonic()
-        self._config = get_config()
+        sources: list[Path] = []
+        self._config = get_config(self._config_path, sources=sources)
         setup_logging(self._config)
 
         if self._config.trace.enabled:
@@ -320,6 +324,12 @@ class CoreApp:
             ),
             bus=self._bus,
             provider=compact_provider,
+            # 只有配置了多个 provider 时才会得到 router，/model 才可用
+            model_switcher=(
+                compact_provider
+                if isinstance(compact_provider, ProviderRouter)
+                else None
+            ),
         )
 
         server = SocketServer(
@@ -343,6 +353,20 @@ class CoreApp:
         addr = await server.start()
         logger.info("kama-core %s listening addr=%s", kama_claude.__version__, addr)
         logger.info("config: %s", self._config)
+        # 显式打印配置来源，避免"以为在用 ollama、其实在打 anthropic"
+        for src in sources:
+            logger.info("config source: %s", src)
+        if isinstance(compact_provider, ProviderRouter):
+            logger.info(
+                "models: default=%s available=%s  (use /model to switch)",
+                compact_provider.current_model(),
+                ", ".join([*compact_provider.list_models(), "auto"]),
+            )
+        else:
+            logger.info(
+                "models: single provider %s (configure more providers for /model)",
+                getattr(compact_provider, "model_name", "?"),
+            )
 
         loop = asyncio.get_running_loop()
         shutdown = asyncio.Event()
@@ -369,6 +393,24 @@ class CoreApp:
             await self._trace.stop()
 
 
-# 同步入口：启动 CoreApp 事件循环
+# 同步入口：解析命令行参数并启动 CoreApp 事件循环
 def run() -> None:
-    asyncio.run(CoreApp().run())
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="kama-core",
+        description="KamaClaude core daemon",
+    )
+    parser.add_argument(
+        "--config",
+        "-c",
+        metavar="PATH",
+        help=(
+            "配置文件路径（优先级高于 KAMA_CONFIG 环境变量）。"
+            "支持 ~ 展开；显式指定但文件不存在时直接报错退出。"
+        ),
+    )
+    args = parser.parse_args()
+
+    config_path = Path(args.config).expanduser() if args.config else None
+    asyncio.run(CoreApp(config_path=config_path).run())

@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from kama_claude.core.bus.envelope import HandlerError
 from kama_claude.core.bus.events import (
     SessionClosedEvent,
     SessionCreatedEvent,
     SessionMessageReceivedEvent,
+    SessionNoticeEvent,
     SessionResumedEvent,
     SessionWaitingForInputEvent,
     SkillInvokedEvent,
@@ -32,6 +34,18 @@ SESSION_BUSY = -32012
 SESSION_NOT_RESUMABLE = -32013
 SESSION_INVALID_WORKSPACE = -32014
 
+# /model 与 /model <name>：运行时切换 LLM provider
+_MODEL_CMD_RE = re.compile(r"^/model(?:\s+(.*))?$", re.IGNORECASE)
+
+
+class ModelSwitcher(Protocol):
+    """运行时切换模型所需的接口；由 ProviderRouter 实现。"""
+
+    def list_models(self) -> list[str]: ...
+    def current_model(self) -> str: ...
+    def model_label(self, name: str) -> str: ...
+    def switch_model(self, name: str) -> None: ...
+
 
 # 返回当前 UTC 时间的 ISO 8601 字符串
 def _now() -> str:
@@ -46,11 +60,13 @@ class SessionManager:
         runner_factory: Callable[[], AgentRunner],
         bus: EventBus,
         provider: LLMProvider | None = None,
+        model_switcher: ModelSwitcher | None = None,
     ) -> None:
         self._store = store
         self._runner_factory = runner_factory
         self._bus = bus
         self._provider = provider
+        self._model_switcher = model_switcher
         self._sessions: dict[str, Session] = {}
         self._locks: dict[str, asyncio.Lock] = {}
         self._skill_loader = SkillLoader()
@@ -108,6 +124,40 @@ class SessionManager:
         await self._bus.publish(SessionCreatedEvent(session_id=sid, mode=mode, ts=ts))
         return session
 
+    # 解析 /model 命令并生成提示文本；非 /model 消息返回 None
+    def _match_model_command(self, content: str) -> str | None:
+        match = _MODEL_CMD_RE.match(content.strip())
+        if match is None:
+            return None
+
+        switcher = self._model_switcher
+        if switcher is None:
+            return (
+                "model switching unavailable: no provider router configured. "
+                "Define [[llm.providers]] in your config to enable /model."
+            )
+
+        argument = (match.group(1) or "").strip()
+        if not argument or argument.lower() in {"list", "ls"}:
+            current = switcher.current_model()
+            lines = [f"current: {current}", "available:"]
+            for name in switcher.list_models():
+                mark = "*" if name == current else " "
+                lines.append(f" {mark} {name}  ({switcher.model_label(name)})")
+            lines.append("   auto  (configured default, fallback enabled)")
+            lines.append("switch with: /model <name>")
+            return "\n".join(lines)
+
+        try:
+            switcher.switch_model(argument)
+        except ValueError as exc:
+            return str(exc)
+
+        current = switcher.current_model()
+        if argument.lower() == "auto":
+            return f"model: auto (routing restored to {current})"
+        return f"model switched to {current} ({switcher.model_label(current)})"
+
     # 处理用户消息，追加 thread 并启动一次 agent run
     async def send_message(self, sid: str, content: str, *, run_id: str | None = None) -> str:
         session = self._get_session(sid)
@@ -118,6 +168,23 @@ class SessionManager:
         async with lock:
             if session.status == "closed":
                 raise HandlerError(SESSION_CLOSED, "session already closed")
+
+            # /model 是本地控制命令：不启动 agent run，直接回一条提示
+            notice = self._match_model_command(content)
+            if notice is not None:
+                self._store.append_message(sid, "user", content)
+                self._store.append_message(sid, "assistant", notice)
+                session.updated_at = _now()
+                self._store.write_meta(session)
+                await self._bus.publish(
+                    SessionNoticeEvent(session_id=sid, message=notice, ts=session.updated_at)
+                )
+                await self._bus.publish(
+                    SessionWaitingForInputEvent(
+                        session_id=sid, last_run_id="", ts=session.updated_at
+                    )
+                )
+                return ""
 
             if session.status in {"waiting_for_input", "interrupted"}:
                 await self._bus.publish(SessionResumedEvent(session_id=sid, ts=_now()))

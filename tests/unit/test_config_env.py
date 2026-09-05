@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from kama_claude.core.config import get_config
+from kama_claude.core.config import KamaConfig, _apply_toml, get_config
 
 
 def _write_env(path: Path, content: str) -> None:
@@ -198,3 +198,65 @@ context_window = 200000
     assert config.llm.complex_provider == "strong"
     assert [provider.name for provider in config.llm.providers] == ["fast", "strong"]
     assert config.llm.providers[0].api_key_env == "FAST_API_KEY"
+
+
+def test_later_config_source_overrides_provider_by_name() -> None:
+    config = KamaConfig()
+    _apply_toml(
+        config,
+        {
+            "llm": {
+                "default_provider": "ollama",
+                "providers": [{
+                    "name": "ollama",
+                    "kind": "openai_compatible",
+                    "model": "old-model",
+                    "base_url": "http://old.example/v1",
+                }],
+            }
+        },
+    )
+    _apply_toml(
+        config,
+        {
+            "llm": {
+                "providers": [{
+                    "name": "ollama",
+                    "kind": "openai_compatible",
+                    "model": "new-model",
+                    "base_url": "http://new.example/v1",
+                }],
+            }
+        },
+    )
+
+    assert [provider.name for provider in config.llm.providers] == ["ollama"]
+    assert config.llm.providers[0].model == "new-model"
+
+
+def test_ollama_provider_does_not_require_api_key_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = tmp_path / "ollama.toml"
+    config_path.write_text(
+        """
+[llm]
+default_provider = "ollama"
+
+[[llm.providers]]
+name = "ollama"
+kind = "openai_compatible"
+model = "qwen3.8:27b"
+base_url = "http://192.168.1.130:11434/v1"
+context_window = 262144
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("KAMA_CONFIG", str(config_path))
+
+    config = get_config()
+
+    assert config.llm.default_provider == "ollama"
+    assert config.llm.providers[0].api_key_env == ""
+    assert config.llm.providers[0].base_url.endswith(":11434/v1")

@@ -70,7 +70,9 @@ def _now() -> str:
 
 
 class AnthropicProvider:
-    # 初始化 Anthropic 客户端；client 可在测试时注入以跳过 API key 检查
+    # 初始化 Anthropic 客户端；client 可在测试时注入以跳过 API key 检查。
+    # key 检查刻意延迟到第一次 chat()：这样即便 ANTHROPIC_API_KEY 未设置，
+    # 只要实际用的是 ollama，daemon 也能正常启动（/model 切换时才会在真正用到 anthropic 时报错）。
     def __init__(
         self,
         model: str,
@@ -80,23 +82,33 @@ class AnthropicProvider:
         base_url: str = "",
         context_window: int | None = None,
     ) -> None:
-        if client is None:
-            api_key = os.environ.get(api_key_env)
-            if not api_key:
-                raise SystemExit(f"{api_key_env} not set")
-            if base_url:
-                self._client: Any = anthropic.AsyncAnthropic(
-                    api_key=api_key,
-                    base_url=base_url,
-                )
-            else:
-                self._client = anthropic.AsyncAnthropic(api_key=api_key)
-        else:
-            self._client = client
         self._model = model
         self._context_window_tokens = context_window or _context_window(model)
+        self._api_key_env = api_key_env
+        self._base_url = base_url
+        self._client: Any = client
+        self._owns_client = client is None
+
+    # 首次调用时才真正创建客户端并检查 API key（延迟失败，避免误杀其他 provider 的启动）
+    def _ensure_client(self) -> None:
+        if self._client is not None:
+            return
+        api_key = os.environ.get(self._api_key_env)
+        if not api_key:
+            raise SystemExit(f"{self._api_key_env} not set")
+        if self._base_url:
+            self._client = anthropic.AsyncAnthropic(api_key=api_key, base_url=self._base_url)
+        else:
+            self._client = anthropic.AsyncAnthropic(api_key=api_key)
+
+    # 供 /model 列表展示实际模型名
+    @property
+    def model_name(self) -> str:
+        return self._model
 
     async def close(self) -> None:
+        if self._client is None:
+            return
         close = getattr(self._client, "close", None)
         if close is not None:
             await close()
@@ -115,6 +127,8 @@ class AnthropicProvider:
         await bus.publish(
             LlmModelSelectedEvent(run_id=run_id, model=self._model, strategy="static", ts=_now())
         )
+
+        self._ensure_client()
 
         system_blocks: list[dict[str, object]] = [
             {

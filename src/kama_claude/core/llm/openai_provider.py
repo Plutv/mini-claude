@@ -86,19 +86,33 @@ class OpenAICompatibleProvider:
     ) -> None:
         self._model = model
         self._context_window = context_window
-        if client is not None:
-            self._client = client
-            self._owns_client = False
-            return
-        api_key = os.environ.get(api_key_env)
-        if not api_key:
-            raise SystemExit(f"{api_key_env} not set")
+        self._api_key_env = api_key_env
+        self._base_url = base_url
+        self._client: httpx.AsyncClient | Any | None = client
+        self._owns_client = client is None
+
+    # 首次调用时才创建 httpx 客户端（并据此检查 key）。ollama 这类
+    # api_key_env="" 的 endpoint 不需要 key，因此即使没有 OPENAI_API_KEY 也能启动。
+    def _ensure_client(self) -> httpx.AsyncClient | Any:
+        if self._client is not None:
+            return self._client
+        headers: dict[str, str] = {}
+        if self._api_key_env:
+            api_key = os.environ.get(self._api_key_env)
+            if not api_key:
+                raise SystemExit(f"{self._api_key_env} not set")
+            headers["Authorization"] = f"Bearer {api_key}"
         self._client = httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {api_key}"},
+            base_url=self._base_url.rstrip("/"),
+            headers=headers,
             timeout=httpx.Timeout(120.0, connect=20.0),
         )
-        self._owns_client = True
+        return self._client
+
+    # 供 /model 列表展示实际模型名
+    @property
+    def model_name(self) -> str:
+        return self._model
 
     async def chat(
         self,
@@ -111,6 +125,7 @@ class OpenAICompatibleProvider:
         system: str | None = None,
     ) -> LlmResponse:
         del step
+        client = self._ensure_client()
         await bus.publish(
             LlmModelSelectedEvent(
                 run_id=run_id, model=self._model, strategy="provider", ts=_now()
@@ -142,7 +157,7 @@ class OpenAICompatibleProvider:
         partial_calls: dict[int, dict[str, str]] = {}
         finish_reason = "stop"
         usage_raw: dict[str, int] = {}
-        async with self._client.stream(
+        async with client.stream(
             "POST", "/chat/completions", json=payload
         ) as response:
             response.raise_for_status()
@@ -214,5 +229,5 @@ class OpenAICompatibleProvider:
         )
 
     async def close(self) -> None:
-        if self._owns_client:
+        if self._owns_client and self._client is not None:
             await self._client.aclose()

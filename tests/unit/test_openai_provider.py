@@ -3,9 +3,39 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 
 from kama_claude.core.events.bus import EventBus
 from kama_claude.core.llm.openai_provider import OpenAICompatibleProvider
+
+
+async def test_openai_compatible_allows_unauthenticated_endpoint() -> None:
+    provider = OpenAICompatibleProvider(
+        "local-model",
+        api_key_env="",
+        base_url="http://127.0.0.1:11434/v1",
+    )
+
+    # 客户端延迟创建：实例化时不校验、不建连接
+    assert provider._client is None
+    provider._ensure_client()
+    assert "Authorization" not in provider._client.headers
+    await provider.close()
+
+
+def test_openai_compatible_still_requires_configured_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MISSING_PROVIDER_KEY", raising=False)
+
+    provider = OpenAICompatibleProvider(
+        "remote-model",
+        api_key_env="MISSING_PROVIDER_KEY",
+        base_url="https://example.test/v1",
+    )
+    # 延迟到首次 chat 才检查 key
+    with pytest.raises(SystemExit, match="MISSING_PROVIDER_KEY not set"):
+        provider._ensure_client()
 
 
 async def test_openai_compatible_stream_accumulates_text_tool_calls_and_usage() -> None:

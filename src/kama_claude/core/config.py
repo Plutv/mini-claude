@@ -36,7 +36,7 @@ class LlmProviderConfig:
     name: str
     kind: str
     model: str
-    api_key_env: str
+    api_key_env: str = ""
     base_url: str = ""
     context_window: int = 128_000
 
@@ -127,16 +127,28 @@ class KamaConfig:
 
 
 # 构建并返回运行时配置：默认值 → 全局 TOML → 项目本地 TOML → .env → 系统环境变量（后者优先级最高）
-def get_config() -> KamaConfig:
+def get_config(
+    explicit_path: str | Path | None = None,
+    *,
+    sources: list[Path] | None = None,
+) -> KamaConfig:
     config = KamaConfig()
 
     # .env 必须在读取 KAMA_CONFIG 之前加载，以便 .env 中的 KAMA_CONFIG 能影响 TOML 路径
     load_dotenv(".env", override=False)
 
-    # 若显式指定 KAMA_CONFIG，只读该文件；否则按优先级叠加：全局 → 项目本地
-    explicit = os.environ.get("KAMA_CONFIG")
+    # 优先级：显式传入路径 > KAMA_CONFIG 环境变量 > 默认（全局 → 项目本地）
+    explicit = explicit_path if explicit_path is not None else os.environ.get("KAMA_CONFIG")
     if explicit:
-        config_paths = [Path(explicit).expanduser()]
+        resolved = Path(explicit).expanduser()
+        # 显式指定的配置文件必须存在。否则会静默回退默认值：用户以为在用
+        # ollama，实际却在查 ANTHROPIC_API_KEY，而且没有任何提示。
+        if not resolved.exists():
+            raise SystemExit(
+                f"Config file not found: {resolved}\n"
+                f"hint: use an absolute path, or place your config at {_DEFAULT_CONFIG_PATH}"
+            )
+        config_paths = [resolved]
     else:
         config_paths = [
             Path(_DEFAULT_CONFIG_PATH).expanduser(),
@@ -151,6 +163,8 @@ def get_config() -> KamaConfig:
             except tomllib.TOMLDecodeError as e:
                 raise SystemExit(f"Config parse error ({config_path}): {e}") from e
             _apply_toml(config, data)
+            if sources is not None:
+                sources.append(config_path)
 
     _apply_env(config)
     return config
@@ -274,7 +288,7 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
                     f"Unknown llm.providers[{index}] keys: "
                     f"{', '.join(sorted(unknown_provider))}"
                 )
-            for required in ("name", "kind", "model", "api_key_env"):
+            for required in ("name", "kind", "model"):
                 if not isinstance(raw.get(required), str) or not raw[required]:
                     raise SystemExit(
                         f"Config error: llm.providers[{index}].{required} is required"
@@ -293,16 +307,34 @@ def _apply_toml(config: KamaConfig, data: dict[str, Any]) -> None:
                 raise SystemExit(
                     f"Config error: llm.providers[{index}].base_url is required"
                 )
-            config.llm.providers.append(
-                LlmProviderConfig(
-                    name=str(raw["name"]),
-                    kind=kind,
-                    model=str(raw["model"]),
-                    api_key_env=str(raw["api_key_env"]),
-                    base_url=str(raw.get("base_url", "")),
-                    context_window=context_window,
+            api_key_env = raw.get("api_key_env", "")
+            if not isinstance(api_key_env, str):
+                raise SystemExit(
+                    f"Config error: llm.providers[{index}].api_key_env must be a string"
                 )
+            if kind == "anthropic" and not api_key_env:
+                raise SystemExit(
+                    f"Config error: llm.providers[{index}].api_key_env is required"
+                )
+            provider = LlmProviderConfig(
+                name=str(raw["name"]),
+                kind=kind,
+                model=str(raw["model"]),
+                api_key_env=api_key_env,
+                base_url=str(raw.get("base_url", "")),
+                context_window=context_window,
             )
+            # Config sources are layered (global -> project -> env). A later
+            # source should override a provider with the same name instead of
+            # making an otherwise valid configuration fail uniqueness checks.
+            existing = next(
+                (i for i, item in enumerate(config.llm.providers) if item.name == provider.name),
+                None,
+            )
+            if existing is None:
+                config.llm.providers.append(provider)
+            else:
+                config.llm.providers[existing] = provider
         if config.llm.providers:
             names = [provider.name for provider in config.llm.providers]
             if len(names) != len(set(names)):

@@ -19,6 +19,12 @@ from kama_claude.core.logging_setup import setup_logging
 def main() -> None:
     parser = argparse.ArgumentParser(prog="kama", description="KamaClaude CLI")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
+    parser.add_argument(
+        "--config",
+        "-c",
+        metavar="PATH",
+        help="配置文件路径（优先级高于 KAMA_CONFIG 环境变量，默认 ~/.kama/config.toml）",
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("ping", help="Ping the core daemon")
@@ -38,7 +44,15 @@ def main() -> None:
 
     core_parser = subparsers.add_parser("core", help="Manage the core daemon")
     core_sub = core_parser.add_subparsers(dest="core_command")
-    core_sub.add_parser("start", help="Start the daemon in the background")
+    core_start_parser = core_sub.add_parser("start", help="Start the daemon in the background")
+    # dest 必须避开 args.config，否则 subparser 默认值会覆盖全局 --config
+    core_start_parser.add_argument(
+        "--config",
+        "-c",
+        dest="core_config",
+        metavar="PATH",
+        help="daemon 使用的配置文件路径（未指定时继承 kama 的 --config / KAMA_CONFIG / 默认路径）",
+    )
     core_sub.add_parser("stop", help="Stop the running daemon")
     core_sub.add_parser("status", help="Show daemon status")
 
@@ -55,7 +69,7 @@ def main() -> None:
         cmd_version()
         return
 
-    config = get_config()
+    config = get_config(args.config)
     setup_logging(config)
 
     if args.command == "ping":
@@ -70,7 +84,7 @@ def main() -> None:
         cmd_eval(args.events_path)
     elif args.command == "core":
         if args.core_command == "start":
-            cmd_core_start(config)
+            cmd_core_start(config, config_path=getattr(args, "core_config", None) or args.config)
         elif args.core_command == "stop":
             cmd_core_stop(config)
         elif args.core_command == "status":

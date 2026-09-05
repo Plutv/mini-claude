@@ -186,12 +186,18 @@ async def test_text_accumulated_from_tokens() -> None:
     assert result.text == "foobarbaz"
 
 
-# 功能：验证缺少 ANTHROPIC_API_KEY 时 provider 初始化立即 SystemExit 而非等到调用时才报错
-# 设计：用 monkeypatch 清除环境变量后实例化，确认 fail-fast 行为，防止"幽灵 run"（有 started 但无 finished 事件）
-async def test_missing_api_key_raises_system_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+# 功能：验证缺少 ANTHROPIC_API_KEY 时 provider 初始化不再立即失败（延迟到首次 chat），
+# 这样即使本机没设 key、当前只用 ollama，daemon 也能正常启动。
+# 设计：monkeypatch 清除环境变量后实例化不应抛异常；真正用到时才在 _ensure_client 报错，
+# 防止"幽灵 run"（有 started 但无 finished 事件）。
+async def test_missing_api_key_defers_until_first_chat(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    # 初始化只记录配置，不创建客户端，因此不抛异常
+    provider = AnthropicProvider(model="any")
+    assert provider._client is None
+    # 首次 chat 时才检查 key 并 fail-fast
     with pytest.raises(SystemExit):
-        AnthropicProvider(model="any")
+        provider._ensure_client()
 
 
 # 功能：验证空流式响应不发布任何 llm.token 事件且 result.text 为空字符串

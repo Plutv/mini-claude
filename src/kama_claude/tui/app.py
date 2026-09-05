@@ -377,6 +377,74 @@ class SlashCompleteWidget(Static):
         self.update("\n".join(lines))
 
 
+class ResumeSelectWidget(Static):
+    """Interactive recent-session picker rendered above the prompt."""
+
+    class Selected(Message):
+        def __init__(self, session_id: str) -> None:
+            self.session_id = session_id
+            super().__init__()
+
+    def __init__(self, sessions: list[dict[str, Any]]) -> None:
+        super().__init__("loading sessions...", classes="session-picker")
+        self.sessions = sessions
+        self.cursor = 0
+
+    def on_mount(self) -> None:
+        self._refresh_content()
+
+    def _refresh_content(self) -> None:
+        lines = ["[bold]resume session[/bold]  [dim](↑/↓ select, enter resume, esc cancel)[/dim]"]
+        for i, session in enumerate(self.sessions):
+            title = _esc(_preview(str(session.get("title", "") or "(no title)"), 48))
+            sid = _esc(str(session.get("session_id", "")))
+            prefix = "[bold cyan]›[/bold cyan]" if i == self.cursor else " "
+            lines.append(f" {prefix} [cyan]{i + 1}.[/cyan] {title}  [dim]{sid}[/dim]")
+        self.update("\n".join(lines))
+
+    def move(self, delta: int) -> None:
+        if self.sessions:
+            self.cursor = (self.cursor + delta) % len(self.sessions)
+            self._refresh_content()
+
+    def select_current(self) -> None:
+        if self.sessions:
+            self.post_message(self.Selected(str(self.sessions[self.cursor]["session_id"])))
+
+
+class ModelSelectWidget(Static):
+    """Interactive provider picker; the selected value is sent as /model."""
+
+    class Selected(Message):
+        def __init__(self, model: str) -> None:
+            self.model = model
+            super().__init__()
+
+    def __init__(self, models: list[str]) -> None:
+        super().__init__("loading models...", classes="model-picker")
+        self.models = models
+        self.cursor = 0
+
+    def on_mount(self) -> None:
+        self._refresh_content()
+
+    def _refresh_content(self) -> None:
+        lines = ["[bold]select model[/bold]  [dim](↑/↓ select, enter apply, esc cancel)[/dim]"]
+        for i, model in enumerate(self.models):
+            marker = "[bold cyan]›[/bold cyan]" if i == self.cursor else " "
+            lines.append(f" {marker} [cyan]{i + 1}.[/cyan] {_esc(model)}")
+        self.update("\n".join(lines))
+
+    def move(self, delta: int) -> None:
+        if self.models:
+            self.cursor = (self.cursor + delta) % len(self.models)
+            self._refresh_content()
+
+    def select_current(self) -> None:
+        if self.models:
+            self.post_message(self.Selected(self.models[self.cursor]))
+
+
 class ChatTextArea(TextArea):
     """支持 Enter 提交、Cmd/Shift/Alt+Enter 换行的多行聊天输入框。"""
 
@@ -423,14 +491,30 @@ class ChatTextArea(TextArea):
         key = event.key
 
         popup: SlashCompleteWidget | None = None
+        picker: ResumeSelectWidget | None = None
+        model_picker: ModelSelectWidget | None = None
         try:
             popup = self.app.query_one(SlashCompleteWidget)
         except NoMatches:
             popup = None
+        try:
+            picker = self.app.query_one(ResumeSelectWidget)
+        except NoMatches:
+            picker = None
+        try:
+            model_picker = self.app.query_one(ModelSelectWidget)
+        except NoMatches:
+            model_picker = None
 
         if key == "enter":
             event.stop()
             event.prevent_default()
+            if picker is not None:
+                picker.select_current()
+                return
+            if model_picker is not None:
+                model_picker.select_current()
+                return
             if popup is not None and popup.has_selection():
                 popup.select_current()
                 return
@@ -443,6 +527,38 @@ class ChatTextArea(TextArea):
             if not self.read_only:
                 self.insert("\n")
             return
+        if picker is not None:
+            if key in ("up", "k"):
+                event.stop()
+                event.prevent_default()
+                picker.move(-1)
+                return
+            if key in ("down", "j"):
+                event.stop()
+                event.prevent_default()
+                picker.move(1)
+                return
+            if key == "escape":
+                event.stop()
+                event.prevent_default()
+                picker.remove()
+                return
+        if model_picker is not None:
+            if key in ("up", "k"):
+                event.stop()
+                event.prevent_default()
+                model_picker.move(-1)
+                return
+            if key in ("down", "j"):
+                event.stop()
+                event.prevent_default()
+                model_picker.move(1)
+                return
+            if key == "escape":
+                event.stop()
+                event.prevent_default()
+                model_picker.remove()
+                return
         if popup is not None:
             if key == "up":
                 event.stop()
@@ -508,11 +624,18 @@ class KamaTuiApp(App[None]):
     )
 
     # 初始化连接参数和 TUI 内部状态
-    def __init__(self, host: str, port: int, replay_run_id: str | None = None) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        replay_run_id: str | None = None,
+        model_options: list[str] | None = None,
+    ) -> None:
         super().__init__()
         self._host = host
         self._port = port
         self._replay_run_id = replay_run_id
+        self._model_options = model_options or []
         self._client: SocketClient | None = None
         self._current_llm: LLMStreamBlock | None = None
         self._pending_tool_blocks: dict[str, ToolCallBlock] = {}
@@ -542,6 +665,7 @@ class KamaTuiApp(App[None]):
     def _build_slash_items(self) -> list[tuple[str, str]]:
         items: list[tuple[str, str]] = [
             ("compact", "compress context window"),
+            ("model", "show or switch the active LLM provider"),
             ("sessions", "list recent chat sessions"),
             ("resume", "resume a previous chat session"),
         ]
@@ -587,6 +711,26 @@ class KamaTuiApp(App[None]):
     # 记录按键焦点；当 PermissionSelect 失去焦点后作为兜底处理权限快捷键
     def on_key(self, event: events.Key) -> None:
         log.debug("App.on_key  key=%r  focused=%r", event.key, self.focused)
+        try:
+            picker = self.query_one(ResumeSelectWidget)
+            if event.key in ("up", "k"):
+                event.stop()
+                picker.move(-1)
+                return
+            if event.key in ("down", "j"):
+                event.stop()
+                picker.move(1)
+                return
+            if event.key == "enter":
+                event.stop()
+                picker.select_current()
+                return
+            if event.key == "escape":
+                event.stop()
+                picker.remove()
+                return
+        except NoMatches:
+            pass
         if not self._pending_permission_blocks:
             return
         try:
@@ -631,6 +775,13 @@ class KamaTuiApp(App[None]):
             event.text_area.text = ""
             if self._client is not None and self._session_id is not None and not self._busy:
                 self.run_worker(self._do_compact(), name="compact", exclusive=False)
+            return
+        if content in ("/model", "/model list", "/model ls"):
+            event.text_area.text = ""
+            if self._client is None or self._session_id is None or self._busy:
+                self._append(Static("[yellow]agent busy or disconnected[/yellow]", classes="log-line"))
+                return
+            self._show_model_picker()
             return
         # /sessions 与裸 /resume：列出可恢复的最近 chat 会话供选择
         if content in ("/sessions", "/resume"):
@@ -723,6 +874,48 @@ class KamaTuiApp(App[None]):
             self._append(Static("[dim]no other chat sessions to resume[/dim]", classes="log-line"))
             return
         self._append(Static(_render_session_list(recent), classes="log-line"))
+        try:
+            self.query_one(ResumeSelectWidget).remove()
+        except NoMatches:
+            pass
+        self.mount(ResumeSelectWidget(recent), before="#prompt")
+
+    def _show_model_picker(self) -> None:
+        models = list(self._model_options)
+        if not models:
+            self._append(Static("[yellow]no model list available; use /model <name>[/yellow]", classes="log-line"))
+            return
+        try:
+            self.query_one(ModelSelectWidget).remove()
+        except NoMatches:
+            pass
+        self.mount(ModelSelectWidget(models), before="#prompt")
+
+    async def on_model_select_widget_selected(self, event: ModelSelectWidget.Selected) -> None:
+        try:
+            self.query_one(ModelSelectWidget).remove()
+        except NoMatches:
+            pass
+        if self._client is not None and self._session_id is not None:
+            self.run_worker(self._do_model_switch(event.model), name="model", exclusive=False)
+
+    async def _do_model_switch(self, model: str) -> None:
+        if self._client is None or self._session_id is None:
+            return
+        try:
+            await self._client.send_command(
+                "session.send_message",
+                {"session_id": self._session_id, "content": f"/model {model}"},
+            )
+        except (IpcError, RuntimeError, OSError) as e:
+            self._append(Static(f"[red]model switch error: {_esc(str(e))}[/red]", classes="log-line"))
+
+    async def on_resume_select_widget_selected(self, event: ResumeSelectWidget.Selected) -> None:
+        try:
+            self.query_one(ResumeSelectWidget).remove()
+        except NoMatches:
+            pass
+        self.run_worker(self._do_resume(event.session_id), name="resume", exclusive=False)
 
     # 恢复指定会话：数字参数按最近列表序号解析（解析不了时自动先拉列表，免去手敲 /sessions），
     # 否则按 session_id；成功后切换活动会话并把历史渲染进界面。
@@ -1014,6 +1207,13 @@ class KamaTuiApp(App[None]):
                 prompt.border_title = "session closed"
             self._update_header("disconnected")
 
+        elif t == "session.notice":
+            message = str(event.get("message", ""))
+            self._append(Static(
+                f"[bold yellow]model[/bold yellow]  {_esc(message)}",
+                classes="log-line",
+            ))
+
         elif t == "run.started":
             run_id = event.get("run_id", "")
             goal = event.get("goal", "")
@@ -1195,5 +1395,11 @@ class KamaTuiApp(App[None]):
 
 # TUI 入口：读取配置并启动 KamaTuiApp
 def run(config: KamaConfig, replay_run_id: str | None = None) -> None:
-    app = KamaTuiApp(config.host, config.port, replay_run_id=replay_run_id)
+    model_options = [p.name for p in config.llm.providers] + ["auto"]
+    app = KamaTuiApp(
+        config.host,
+        config.port,
+        replay_run_id=replay_run_id,
+        model_options=model_options,
+    )
     app.run()

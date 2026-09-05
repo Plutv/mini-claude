@@ -1,0 +1,10 @@
+[llm]
+router = "static"
+default_provider = "ollama"
+
+[[llm.providers]]
+name = "ollama"
+kind = "openai_compatible"
+model = "qwen3.8:27b"
+base_url = "http://192.168.1.130:11434/v1"
+context_window = 262144
