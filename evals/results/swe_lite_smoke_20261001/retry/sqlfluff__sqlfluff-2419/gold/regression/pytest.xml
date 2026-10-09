@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.130" timestamp="2026-10-02T02:36:49.067676" hostname="Legion"><testcase classname="test.rules.std_L060_test" name="test__rules__std_L060_raised" time="0.094" /></testsuite></testsuites>

@@ -69,3 +69,16 @@ async def test_empty_file_returns_empty_content(tmp_path: Path) -> None:
     result = await ReadFileTool().invoke({"path": str(f)})
     assert not result.is_error
     assert result.content == ""
+
+
+async def test_read_file_range_is_one_based_and_bounded(tmp_path: Path) -> None:
+    path = tmp_path / "lines.txt"
+    path.write_text("first\nsecond\nthird\n", encoding="utf-8")
+    tool = ReadFileTool(workspace=tmp_path)
+
+    result = await tool.invoke({"path": "lines.txt", "start_line": 2, "num_lines": 2})
+    assert result.content == "[file lines 2:3 of 3]\nsecond\nthird\n"
+
+    out_of_range = await tool.invoke({"path": "lines.txt", "start_line": 4})
+    assert out_of_range.is_error
+    assert out_of_range.error_type == "out_of_range"

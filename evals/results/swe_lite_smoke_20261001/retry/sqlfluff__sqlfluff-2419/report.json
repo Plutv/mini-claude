@@ -1,0 +1,128 @@
+{
+  "case_id": "sqlfluff__sqlfluff-2419",
+  "base_commit": "f1dba0e1dd764ae72d67c3d5e1471cf14d3db030",
+  "started_at": "2026-10-01T18:36:43.947599+00:00",
+  "dataset_sha256": "8312f321838051849d2fa7c6ca071244733a3e90bb517ff6ca8186f722199b5c",
+  "kc_commit": "86bf7fce5b375f2ba9690f6625c5d790e9c91c2b",
+  "harness_sha256": "07a9740d129cf9e0a32a24402abad6dac73c36923b396f9749fd00bed3deb504",
+  "verifier": "local pytest; official test_patch; relevant test files",
+  "baseline": {
+    "target": {
+      "returncode": 1,
+      "duration_s": 1.12,
+      "tests": [
+        "test/rules/std_L060_test.py::test__rules__std_L060_raised"
+      ],
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 1,
+      "duration_s": 0.97,
+      "tests": [
+        "test/rules/std_L060_test.py"
+      ],
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    "passed": false
+  },
+  "gold": {
+    "target": {
+      "returncode": 0,
+      "duration_s": 1.04,
+      "tests": [
+        "test/rules/std_L060_test.py::test__rules__std_L060_raised"
+      ],
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 0,
+      "duration_s": 1.07,
+      "tests": [
+        "test/rules/std_L060_test.py"
+      ],
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "passed": true
+  },
+  "environment_valid": true,
+  "agent": {
+    "status": "success",
+    "reason": null,
+    "steps": 20,
+    "duration_s": 129.33,
+    "final_answer": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"list_dir\">\n<｜｜DSML｜｜ parameter name=\"path\" string=\"true\">.pytest_cache/v/cache</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+    "tool_calls": 29,
+    "tool_failures": 3,
+    "usage": {
+      "input_tokens": 33300,
+      "output_tokens": 4874,
+      "cache_read_input_tokens": 184576,
+      "cache_creation_input_tokens": 0
+    },
+    "tools": [
+      "read_file",
+      "grep_search",
+      "search_text",
+      "list_dir",
+      "edit_file",
+      "apply_patch",
+      "write_file",
+      "run_tests",
+      "git_diff",
+      "read_artifact"
+    ],
+    "max_steps": 20,
+    "providers": [
+      {
+        "name": "anthropic",
+        "kind": "anthropic",
+        "model": "claude-sonnet-4-6"
+      },
+      {
+        "name": "ollama",
+        "kind": "openai_compatible",
+        "model": "qwen3.8:27b"
+      }
+    ]
+  },
+  "patch_sha256": "e95f9d3d61276e2302b35957d09b5509b459be0aaf94dde17e37da4b1980b6e9",
+  "candidate": {
+    "target": {
+      "returncode": 0,
+      "duration_s": 0.92,
+      "tests": [
+        "test/rules/std_L060_test.py::test__rules__std_L060_raised"
+      ],
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 0,
+      "duration_s": 0.78,
+      "tests": [
+        "test/rules/std_L060_test.py"
+      ],
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "passed": true
+  },
+  "resolved": true,
+  "finished_at": "2026-10-01T18:39:05.705701+00:00"
+}

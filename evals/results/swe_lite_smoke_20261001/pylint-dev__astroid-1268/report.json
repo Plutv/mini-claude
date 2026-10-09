@@ -1,0 +1,128 @@
+{
+  "case_id": "pylint-dev__astroid-1268",
+  "base_commit": "ce5cbce5ba11cdc2f8139ade66feea1e181a7944",
+  "started_at": "2026-10-01T08:56:20.511658+00:00",
+  "dataset_sha256": "8312f321838051849d2fa7c6ca071244733a3e90bb517ff6ca8186f722199b5c",
+  "kc_commit": "86bf7fce5b375f2ba9690f6625c5d790e9c91c2b",
+  "harness_sha256": "c0b6986daf1310b2620ffcab18adb71c5ae27d5748b6e23ff106a751f00fed8c",
+  "verifier": "local pytest; official test_patch; relevant test files",
+  "baseline": {
+    "target": {
+      "returncode": 1,
+      "duration_s": 2.89,
+      "tests": [
+        "tests/unittest_nodes.py::AsStringTest::test_as_string_unknown"
+      ],
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 1,
+      "duration_s": 6.29,
+      "tests": [
+        "tests/unittest_nodes.py"
+      ],
+      "passed": 95,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 1
+    },
+    "passed": false
+  },
+  "gold": {
+    "target": {
+      "returncode": 0,
+      "duration_s": 1.96,
+      "tests": [
+        "tests/unittest_nodes.py::AsStringTest::test_as_string_unknown"
+      ],
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 0,
+      "duration_s": 5.23,
+      "tests": [
+        "tests/unittest_nodes.py"
+      ],
+      "passed": 96,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "passed": true
+  },
+  "environment_valid": true,
+  "agent": {
+    "status": "success",
+    "reason": null,
+    "steps": 20,
+    "duration_s": 85.47,
+    "final_answer": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"run_tests\">\n<｜｜DSML｜｜ parameter name=\"path\" string=\"true\">tests/unittest_tmp_probe.py</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+    "tool_calls": 33,
+    "tool_failures": 3,
+    "usage": {
+      "input_tokens": 54052,
+      "output_tokens": 11185,
+      "cache_read_input_tokens": 366080,
+      "cache_creation_input_tokens": 0
+    },
+    "tools": [
+      "read_file",
+      "grep_search",
+      "search_text",
+      "list_dir",
+      "edit_file",
+      "apply_patch",
+      "write_file",
+      "run_tests",
+      "git_diff",
+      "read_artifact"
+    ],
+    "max_steps": 20,
+    "providers": [
+      {
+        "name": "anthropic",
+        "kind": "anthropic",
+        "model": "claude-sonnet-4-6"
+      },
+      {
+        "name": "ollama",
+        "kind": "openai_compatible",
+        "model": "qwen3.8:27b"
+      }
+    ]
+  },
+  "patch_sha256": "26b683e8f74e7ff8f98fb6a9bde8f8007de074763e07a6aa72d5173aab171a4f",
+  "candidate": {
+    "target": {
+      "returncode": 1,
+      "duration_s": 2.41,
+      "tests": [
+        "tests/unittest_nodes.py::AsStringTest::test_as_string_unknown"
+      ],
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 1,
+      "duration_s": 5.46,
+      "tests": [
+        "tests/unittest_nodes.py"
+      ],
+      "passed": 95,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 1
+    },
+    "passed": false
+  },
+  "resolved": false,
+  "finished_at": "2026-10-01T08:58:46.055611+00:00"
+}

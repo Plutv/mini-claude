@@ -1,0 +1,14 @@
+diff --git a/tests/unittest_tmp_probe.py b/tests/unittest_tmp_probe.py
+new file mode 100755
+index 0000000..11ea076
+--- /dev/null
++++ b/tests/unittest_tmp_probe.py
+@@ -0,0 +1,8 @@
++from astroid import nodes
++
++
++def test_probe_str():
++    from astroid import nodes as n
++
++    node = n.Unknown()
++    assert 0, repr(str(node)) + " || " + repr(node.name)

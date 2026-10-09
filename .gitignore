@@ -19,3 +19,7 @@ uv.lock
 *.log
 workspace/
 tmp/
+
+# Personal preparation notes stay local, not in the published repository.
+/docs/interview/
+/docs/private/

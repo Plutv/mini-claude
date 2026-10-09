@@ -1,0 +1,14 @@
+{
+  "repo": "sqlfluff/sqlfluff",
+  "instance_id": "sqlfluff__sqlfluff-2419",
+  "base_commit": "f1dba0e1dd764ae72d67c3d5e1471cf14d3db030",
+  "patch": "diff --git a/src/sqlfluff/rules/L060.py b/src/sqlfluff/rules/L060.py\n--- a/src/sqlfluff/rules/L060.py\n+++ b/src/sqlfluff/rules/L060.py\n@@ -59,4 +59,8 @@ def _eval(self, context: RuleContext) -> Optional[LintResult]:\n             ],\n         )\n \n-        return LintResult(context.segment, [fix])\n+        return LintResult(\n+            anchor=context.segment,\n+            fixes=[fix],\n+            description=f\"Use 'COALESCE' instead of '{context.segment.raw_upper}'.\",\n+        )\n",
+  "test_patch": "diff --git a/test/rules/std_L060_test.py b/test/rules/std_L060_test.py\nnew file mode 100644\n--- /dev/null\n+++ b/test/rules/std_L060_test.py\n@@ -0,0 +1,12 @@\n+\"\"\"Tests the python routines within L060.\"\"\"\n+import sqlfluff\n+\n+\n+def test__rules__std_L060_raised() -> None:\n+    \"\"\"L060 is raised for use of ``IFNULL`` or ``NVL``.\"\"\"\n+    sql = \"SELECT\\n\\tIFNULL(NULL, 100),\\n\\tNVL(NULL,100);\"\n+    result = sqlfluff.lint(sql, rules=[\"L060\"])\n+\n+    assert len(result) == 2\n+    assert result[0][\"description\"] == \"Use 'COALESCE' instead of 'IFNULL'.\"\n+    assert result[1][\"description\"] == \"Use 'COALESCE' instead of 'NVL'.\"\n",
+  "problem_statement": "Rule L060 could give a specific error message\nAt the moment rule L060 flags something like this:\r\n\r\n```\r\nL:  21 | P:   9 | L060 | Use 'COALESCE' instead of 'IFNULL' or 'NVL'.\r\n```\r\n\r\nSince we likely know the wrong word, it might be nice to actually flag that instead of both `IFNULL` and `NVL` - like most of the other rules do.\r\n\r\nThat is it should flag this:\r\n\r\n```\r\nL:  21 | P:   9 | L060 | Use 'COALESCE' instead of 'IFNULL'.\r\n```\r\n Or this:\r\n\r\n```\r\nL:  21 | P:   9 | L060 | Use 'COALESCE' instead of 'NVL'.\r\n```\r\n\r\nAs appropriate.\r\n\r\nWhat do you think @jpy-git ?\r\n\n",
+  "hints_text": "@tunetheweb Yeah definitely, should be a pretty quick change 😊",
+  "created_at": "2022-01-22T12:21:52Z",
+  "version": "0.8",
+  "FAIL_TO_PASS": "[\"test/rules/std_L060_test.py::test__rules__std_L060_raised\"]",
+  "PASS_TO_PASS": "[]",
+  "environment_setup_commit": "a5c4eae4e3e419fe95460c9afd9cf39a35a470c4"
+}

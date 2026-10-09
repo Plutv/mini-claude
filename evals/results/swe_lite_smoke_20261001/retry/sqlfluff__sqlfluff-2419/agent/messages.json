@@ -1,0 +1,757 @@
+[
+  {
+    "role": "user",
+    "content": "Rule L060 could give a specific error message\nAt the moment rule L060 flags something like this:\r\n\r\n```\r\nL:  21 | P:   9 | L060 | Use 'COALESCE' instead of 'IFNULL' or 'NVL'.\r\n```\r\n\r\nSince we likely know the wrong word, it might be nice to actually flag that instead of both `IFNULL` and `NVL` - like most of the other rules do.\r\n\r\nThat is it should flag this:\r\n\r\n```\r\nL:  21 | P:   9 | L060 | Use 'COALESCE' instead of 'IFNULL'.\r\n```\r\n Or this:\r\n\r\n```\r\nL:  21 | P:   9 | L060 | Use 'COALESCE' instead of 'NVL'.\r\n```\r\n\r\nAs appropriate.\r\n\r\nWhat do you think @jpy-git ?\r\n\n"
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "The user is asking me to implement a change to rule L060 in what appears to be the sqlfluff repository. Let me explore the codebase to understand the structure and find the relevant files.\n\nLet me start by exploring the workspace.",
+        "signature": "8ab89a70-4b75-4ae5-873c-5dca1139adf6"
+      },
+      {
+        "type": "text",
+        "text": "I'll explore the codebase to find rule L060 and understand how it's currently implemented."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_HcxLZap8VAREbeu2CHUt4485",
+        "name": "grep_search",
+        "input": {
+          "pattern": "L060",
+          "max_results": 50
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_FhgHYUfUAqFGKoYeIDIn6510",
+        "name": "grep_search",
+        "input": {
+          "pattern": "IFNULL",
+          "max_results": 50
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_HcxLZap8VAREbeu2CHUt4485",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"src/sqlfluff.egg-info/SOURCES.txt\",\n      \"line\": 179,\n      \"text\": \"src/sqlfluff/rules/L060.py\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 1,\n      \"text\": \"\\\"\\\"\\\"Implementation of Rule L060.\\\"\\\"\\\"\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 11,\n      \"text\": \"class Rule_L060(BaseRule):\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/fixtures/rules/std_rule_cases/L060.yml\",\n      \"line\": 1,\n      \"text\": \"rule: L060\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 4,\n  \"truncated\": false\n}"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_FhgHYUfUAqFGKoYeIDIn6510",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"src/sqlfluff/dialects/dialect_exasol_keywords.py\",\n      \"line\": 200,\n      \"text\": \"    \\\"IFNULL\\\",\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/dialects/dialect_exasol_keywords.py\",\n      \"line\": 845,\n      \"text\": \"    \\\"ZEROIFNULL\\\",\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 12,\n      \"text\": \"    \\\"\\\"\\\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 15,\n      \"text\": \"    | ``IFNULL`` or ``NVL`` are used to fill ``NULL`` values.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 28,\n      \"text\": \"    | whereas Redshift doesn't support ``IFNULL``\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 41,\n      \"text\": \"        \\\"\\\"\\\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\\\"\\\"\\\"\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 46,\n      \"text\": \"        # Only care if the function is ``IFNULL`` or ``NVL``.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 47,\n      \"text\": \"        if context.segment.raw_upper not in {\\\"IFNULL\\\", \\\"NVL\\\"}:\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 50,\n      \"text\": \"        # Create fix to replace ``IFNULL`` or ``NVL`` with ``COALESCE``.\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 9,\n  \"truncated\": false\n}"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "",
+        "signature": "61b294a1-3c93-47e0-a22b-c25cfd10a6d7"
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_ET_BHai5H9sYeBVOSfTeFby8878",
+        "name": "read_file",
+        "input": {
+          "path": "src/sqlfluff/rules/L060.py"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_ET_bLgUm9v5hNPCTKCw3xQ71711",
+        "name": "read_file",
+        "input": {
+          "path": "test/fixtures/rules/std_rule_cases/L060.yml"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_ET_BHai5H9sYeBVOSfTeFby8878",
+        "content": "\"\"\"Implementation of Rule L060.\"\"\"\n\nfrom typing import Optional\n\nfrom sqlfluff.core.parser.segments.raw import CodeSegment\nfrom sqlfluff.core.rules.base import BaseRule, LintFix, LintResult, RuleContext\nfrom sqlfluff.core.rules.doc_decorators import document_fix_compatible\n\n\n@document_fix_compatible\nclass Rule_L060(BaseRule):\n    \"\"\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\n\n    | **Anti-pattern**\n    | ``IFNULL`` or ``NVL`` are used to fill ``NULL`` values.\n\n    .. code-block:: sql\n\n        SELECT ifnull(foo, 0) AS bar,\n        FROM baz;\n\n        SELECT nvl(foo, 0) AS bar,\n        FROM baz;\n\n    | **Best practice**\n    | Use ``COALESCE`` instead.\n    | ``COALESCE`` is universally supported,\n    | whereas Redshift doesn't support ``IFNULL``\n    | and BigQuery doesn't support ``NVL``.\n    | Additionally ``COALESCE`` is more flexible\n    | and accepts an arbitrary number of arguments.\n\n    .. code-block:: sql\n\n        SELECT coalesce(foo, 0) AS bar,\n        FROM baz;\n\n    \"\"\"\n\n    def _eval(self, context: RuleContext) -> Optional[LintResult]:\n        \"\"\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\"\"\"\n        # We only care about function names.\n        if context.segment.name != \"function_name_identifier\":\n            return None\n\n        # Only care if the function is ``IFNULL`` or ``NVL``.\n        if context.segment.raw_upper not in {\"IFNULL\", \"NVL\"}:\n            return None\n\n        # Create fix to replace ``IFNULL`` or ``NVL`` with ``COALESCE``.\n        fix = LintFix.replace(\n            context.segment,\n            [\n                CodeSegment(\n                    raw=\"COALESCE\",\n                    name=\"function_name_identifier\",\n                    type=\"function_name_identifier\",\n                )\n            ],\n        )\n\n        return LintResult(context.segment, [fix])\n"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_ET_bLgUm9v5hNPCTKCw3xQ71711",
+        "content": "rule: L060\n\ntest_pass_coalesce:\n  pass_str: |\n    SELECT coalesce(foo, 0) AS bar,\n    FROM baz;\n\ntest_fail_ifnull:\n  fail_str: |\n    SELECT ifnull(foo, 0) AS bar,\n    FROM baz;\n  pass_str: |\n    SELECT coalesce(foo, 0) AS bar,\n    FROM baz;\n\ntest_fail_nvl:\n  fail_str: |\n    SELECT nvl(foo, 0) AS bar,\n    FROM baz;\n  pass_str: |\n    SELECT coalesce(foo, 0) AS bar,\n    FROM baz;\n"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Now I understand the current implementation. The rule flags both `IFNULL` and `NVL` with a generic message \"Use 'COALESCE' instead of 'IFNULL' or 'NVL'.\"\n\nThe user wants the message to be specific - flag only the actual wrong word. So if `IFNULL` is used, the message should be \"Use 'COALESCE' instead of 'IFNULL'.\" and if `NVL` is used, \"Use 'COALESCE' instead of 'NVL'.\"\n\nLet me look at how other rules do this to follow the same pattern. Let me search for similar rules with specific messages.\n\nLet me look at how LintResult can take a description. Let me look at how other rules construct dynamic messages.",
+        "signature": "7e179233-2e01-4367-b6b9-219a6c7ab7c7"
+      },
+      {
+        "type": "text",
+        "text": "Now let me look at how other rules produce dynamic/custom messages to follow the established pattern."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_k9FPyNyovkcGtPsjJyXf5470",
+        "name": "grep_search",
+        "input": {
+          "pattern": "description=f",
+          "glob": "*.py",
+          "path": "src/sqlfluff/rules",
+          "max_results": 40
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_iZDgNqru2KLhClKCK0f92738",
+        "name": "grep_search",
+        "input": {
+          "pattern": "LintResult\\(",
+          "glob": "*.py",
+          "path": "src/sqlfluff/rules",
+          "max_results": 40
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_k9FPyNyovkcGtPsjJyXf5470",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"src/sqlfluff/rules/L010.py\",\n      \"line\": 183,\n      \"text\": \"                description=f\\\"{self._description_elem} must be {consistency}{policy}\\\",\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L026.py\",\n      \"line\": 201,\n      \"text\": \"                    description=f\\\"Reference {r.raw!r} refers to table/view \\\"\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L027.py\",\n      \"line\": 68,\n      \"text\": \"                        description=f\\\"Unqualified reference {r.raw!r} found in \\\"\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L028.py\",\n      \"line\": 88,\n      \"text\": \"                            description=f\\\"{this_ref_type.capitalize()} reference \\\"\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L042.py\",\n      \"line\": 87,\n      \"text\": \"                        description=f\\\"{parent_type} clauses should not contain \\\"\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L059.py\",\n      \"line\": 76,\n      \"text\": \"                description=f\\\"Unnecessary quoted identifier {context.segment.raw}.\\\",\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 6,\n  \"truncated\": false\n}"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_iZDgNqru2KLhClKCK0f92738",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"src/sqlfluff/rules/L001.py\",\n      \"line\": 67,\n      \"text\": \"                    return LintResult()\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L001.py\",\n      \"line\": 68,\n      \"text\": \"            return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L001.py\",\n      \"line\": 72,\n      \"text\": \"        return LintResult()\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L002.py\",\n      \"line\": 61,\n      \"text\": \"                    return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 327,\n      \"text\": \"            return LintResult()\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 330,\n      \"text\": \"                return LintResult()\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 382,\n      \"text\": \"            return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 402,\n      \"text\": \"        return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 435,\n      \"text\": \"            return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 472,\n      \"text\": \"                return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 478,\n      \"text\": \"                return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 533,\n      \"text\": \"                    return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 538,\n      \"text\": \"                    return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 555,\n      \"text\": \"                return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 617,\n      \"text\": \"                    return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 675,\n      \"text\": \"                    return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 730,\n      \"text\": \"                        return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 752,\n      \"text\": \"                    return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 790,\n      \"text\": \"                    return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 830,\n      \"text\": \"                return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 838,\n      \"text\": \"            return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L003.py\",\n      \"line\": 845,\n      \"text\": \"        return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L004.py\",\n      \"line\": 101,\n      \"text\": \"            return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L004.py\",\n      \"line\": 104,\n      \"text\": \"        return LintResult()\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L005.py\",\n      \"line\": 52,\n      \"text\": \"                return LintResult(anchor=anchor, fixes=[LintFix.delete(cm1)])\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L006.py\",\n      \"line\": 102,\n      \"text\": \"            return LintResult()\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L006.py\",\n      \"line\": 160,\n      \"text\": \"                        LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L006.py\",\n      \"line\": 187,\n      \"text\": \"                        LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L006.py\",\n      \"line\": 206,\n      \"text\": \"        return LintResult()\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L007.py\",\n      \"line\": 104,\n      \"text\": \"            return LintResult(anchor=anchor, memory=memory, description=description)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L007.py\",\n      \"line\": 106,\n      \"text\": \"            return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L008.py\",\n      \"line\": 92,\n      \"text\": \"            return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L008.py\",\n      \"line\": 103,\n      \"text\": \"            return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L009.py\",\n      \"line\": 117,\n      \"text\": \"            return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L009.py\",\n      \"line\": 128,\n      \"text\": \"            return LintResult(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L010.py\",\n      \"line\": 64,\n      \"text\": \"            return LintResult(memory=context.memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L010.py\",\n      \"line\": 113,\n      \"text\": \"                return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L010.py\",\n      \"line\": 126,\n      \"text\": \"                return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L010.py\",\n      \"line\": 161,\n      \"text\": \"            return LintResult(memory=memory)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L010.py\",\n      \"line\": 179,\n      \"text\": \"            return LintResult(\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 40,\n  \"truncated\": true\n}"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Let me look at a good example of a rule using `description=f\"...\"`. L059 is a good simple example. Let me look at L059.",
+        "signature": "cb22a347-40a7-4b1d-8282-44cdcfe1eaaf"
+      },
+      {
+        "type": "text",
+        "text": "Let me look at a simple example (L059) of how a dynamic description is built."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_kMd57BEIOplhR2nbJu1x3861",
+        "name": "read_file",
+        "input": {
+          "path": "src/sqlfluff/rules/L059.py",
+          "start_line": 60,
+          "num_lines": 40
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_kMd57BEIOplhR2nbJu1x3861",
+        "content": "[file lines 60:79 of 79]\n            is None\n        ):\n            return LintResult(\n                context.segment,\n                fixes=[\n                    LintFix.replace(\n                        context.segment,\n                        [\n                            CodeSegment(\n                                raw=quoted_identifier_contents,\n                                name=\"naked_identifier\",\n                                type=\"identifier\",\n                            )\n                        ],\n                    )\n                ],\n                description=f\"Unnecessary quoted identifier {context.segment.raw}.\",\n            )\n\n        return None\n"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Now I understand the pattern. Let me make the change to L060.py to produce a specific message. The change: build the description dynamically based on the wrong word.\n\nLet me update the `_eval` method:\n\n```python\ndef _eval(self, context: RuleContext) -> Optional[LintResult]:\n    \"\"\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\"\"\"\n    # We only care about function names.\n    if context.segment.name != \"function_name_identifier\":\n        return None\n\n    # Only care if the function is ``IFNULL`` or ``NVL``.\n    if context.segment.raw_upper not in {\"IFNULL\", \"NVL\"}:\n        return None\n\n    # Create fix to replace ``IFNULL`` or ``NVL`` with ``COALESCE``.\n    fix = LintFix.replace(\n        context.segment,\n        [\n            CodeSegment(\n                raw=\"COALESCE\",\n                name=\"function_name_identifier\",\n                type=\"function_name_identifier\",\n            )\n        ],\n    )\n\n    return LintResult(\n        context.segment,\n        [fix],\n        description=f\"Use 'COALESCE' instead of '{context.segment.raw_upper}'.\",\n    )\n```\n\nWait, the original message uses 'IFNULL' and 'NVL' uppercase. Let me think about which form to use. The example in the issue:\n\n```\nL:  21 | P:   9 | L060 | Use 'COALESCE' instead of 'IFNULL'.\n```\n\nSo it uses uppercase. Let me use `context.segment.raw_upper`. Actually, let me check what other rules do - L059 uses `context.segment.raw` (the actual text). But given the issue example shows 'IFNULL' and 'NVL' (uppercase), and the rule matched `raw_upper`. Hmm.\n\nActually let's think. The `document_fix_compatible` and the description in the docstring. Let me look at how the message is generated. Actually, the default description will be the docstring first line. Let me check how the base rule constructs the default description.\n\nLet me look at the BaseRule and how description defaults.\n\nActually, it's important to match the existing test expectations. Let me search the test suite for the old message to see if any tests reference it.\n\nLet me search for \"instead of 'IFNULL'\".",
+        "signature": "7cacd769-4bb0-45e5-a241-49792529fcb8"
+      },
+      {
+        "type": "text",
+        "text": "Let me check whether any tests or docs reference the current L060 message text."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_JtJ7b90S7DIr4znTxzUA6894",
+        "name": "grep_search",
+        "input": {
+          "pattern": "instead of .IFNULL",
+          "max_results": 50
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_qYEqRy9juU4SXCNCj37u4110",
+        "name": "grep_search",
+        "input": {
+          "pattern": "Use 'COALESCE'",
+          "max_results": 50
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_JtJ7b90S7DIr4znTxzUA6894",
+        "content": "{\n  \"matches\": [],\n  \"count\": 0,\n  \"truncated\": false\n}"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_qYEqRy9juU4SXCNCj37u4110",
+        "content": "{\n  \"matches\": [],\n  \"count\": 0,\n  \"truncated\": false\n}"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "No test references the specific message. Let me check the rules test documentation / docs folder for L060.\n\nLet me now make the change. Let me look at how the default description is derived, to be sure that providing an explicit description works.\n\nLet me check base rule.",
+        "signature": "4a6b52a9-afa2-4897-8808-4345f616f0ec"
+      },
+      {
+        "type": "text",
+        "text": "Let me check the base rule to confirm how `description` defaults are handled."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_XGvWBBvT1cIGobcDcSXq0375",
+        "name": "grep_search",
+        "input": {
+          "pattern": "description",
+          "path": "src/sqlfluff/core/rules/base.py",
+          "max_results": 40
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_XGvWBBvT1cIGobcDcSXq0375",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 37,\n      \"text\": \"RuleGhost = namedtuple(\\\"RuleGhost\\\", [\\\"code\\\", \\\"description\\\"])\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 67,\n      \"text\": \"        description (:obj:`str`, optional): A description of the problem\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 69,\n      \"text\": \"            description of the rule as what gets reported to the user\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 79,\n      \"text\": \"        description=None,\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 89,\n      \"text\": \"        # store a description_override for later\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 90,\n      \"text\": \"        self.description = description\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 95,\n      \"text\": \"            # Allow description override from the LintResult\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 96,\n      \"text\": \"            description = self.description or rule.description\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 101,\n      \"text\": \"                description=description,\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 420,\n      \"text\": \"        description (:obj:`str`): A human readable description of what this\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 429,\n      \"text\": \"    def __init__(self, code, description, **kwargs):\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 430,\n      \"text\": \"        self.description = description\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 546,\n      \"text\": \"                    description=(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 599,\n      \"text\": \"            self.logger.debug(\\\"!! Violation Found: %r\\\", lerr.description)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 793,\n      \"text\": \"    The code for the rule will be parsed from the name, the description\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 881,\n      \"text\": \"        description = cls.__doc__.replace(\\\"``\\\", \\\"'\\\").split(\\\"\\\\n\\\")[0]\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 893,\n      \"text\": \"        self._register[code] = dict(code=code, description=description, cls=cls)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 979,\n      \"text\": \"            # Allow variable substitution in making the description\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/core/rules/base.py\",\n      \"line\": 980,\n      \"text\": \"            kwargs[\\\"description\\\"] = self._register[k][\\\"description\\\"].format(**kwargs)\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 19,\n  \"truncated\": false\n}"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Good. The `LintResult` accepts a `description` parameter which overrides the default. Let me confirm the `LintResult` signature around line 67-101.",
+        "signature": "c59d7884-05a5-446f-82b7-c592e7a548cc"
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_FrGwu2iU1q74RHlNJOIC3793",
+        "name": "read_file",
+        "input": {
+          "path": "src/sqlfluff/core/rules/base.py",
+          "start_line": 55,
+          "num_lines": 55
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_FrGwu2iU1q74RHlNJOIC3793",
+        "content": "[file lines 55:109 of 990]\n\n    Args:\n        anchor (:obj:`BaseSegment`, optional): A segment which represents\n            the *position* of the a problem. NB: Each fix will also hold\n            its own reference to position, so this position is mostly for\n            alerting the user to where the *problem* is.\n        fixes (:obj:`list` of :obj:`LintFix`, optional): An array of any\n            fixes which would correct this issue. If not present then it's\n            assumed that this issue will have to manually fixed.\n        memory (:obj:`dict`, optional): An object which stores any working\n            memory for the rule. The `memory` returned in any `LintResult`\n            will be passed as an input to the next segment to be crawled.\n        description (:obj:`str`, optional): A description of the problem\n            identified as part of this result. This will override the\n            description of the rule as what gets reported to the user\n            with the problem if provided.\n\n    \"\"\"\n\n    def __init__(\n        self,\n        anchor: Optional[BaseSegment] = None,\n        fixes: Optional[List[\"LintFix\"]] = None,\n        memory=None,\n        description=None,\n    ):\n        # An anchor of none, means no issue\n        self.anchor = anchor\n        # Fixes might be blank\n        self.fixes = fixes or []\n        # When instantiating the result, we filter any fixes which are \"trivial\".\n        self.fixes = [f for f in self.fixes if not f.is_trivial()]\n        # Memory is passed back in the linting result\n        self.memory = memory\n        # store a description_override for later\n        self.description = description\n\n    def to_linting_error(self, rule) -> Optional[SQLLintError]:\n        \"\"\"Convert a linting result to a :exc:`SQLLintError` if appropriate.\"\"\"\n        if self.anchor:\n            # Allow description override from the LintResult\n            description = self.description or rule.description\n            return SQLLintError(\n                rule=rule,\n                segment=self.anchor,\n                fixes=self.fixes,\n                description=description,\n            )\n        else:\n            return None\n\n\nclass LintFix:\n    \"\"\"A class to hold a potential fix to a linting violation.\n\n"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Now I understand. Let me make the change to L060.py to build a specific message. I'll use `context.segment.raw_upper` to match the issue's example (uppercase 'IFNULL' and 'NVL').\n\nActually, let me reconsider whether to use `raw` or `raw_upper`. The issue examples show capitalized uppercase. Other rules like L059 use `raw`. But given the rule docstring and message uses uppercase, I'll use `raw_upper`. Hmm, but using raw would preserve the user's casing which is arguably nicer. Let me think about what the maintainers would prefer.\n\nLooking at the issue text: \"it might be nice to actually flag that instead of both `IFNULL` and `NVL`\". The examples show uppercase. I'll go with the uppercase version to match the existing message wording.\n\nActually, wait, let me reconsider. Using `raw_upper` for the description ensures consistent output. But there might be a subtlety: the existing description says \"Use 'COALESCE' instead of 'IFNULL' or 'NVL'.\" which uses uppercase names. So to be consistent, use uppercase.\n\nHmm, but actually might be better to use the actual raw text? Let me look at how the message is formatted. The default description is derived from docstring with backticks replaced. The docstring is \"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\" -> \"Use 'COALESCE' instead of 'IFNULL' or 'NVL'.\"\n\nSo to keep exactly 'IFNULL'/'NVL' uppercase, I'll use `context.segment.raw_upper`.\n\nNow let me make the edit. Also I should update the tests to include descriptions. Let me check how the YAML test cases handle descriptions. Let me look at another rule's yml with description checks.",
+        "signature": "d68a5724-8ae3-4062-82d2-28f19b137539"
+      },
+      {
+        "type": "text",
+        "text": "The change is clear. Let me check how other rule YAML test cases assert dynamic descriptions."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_Y9ehco6BnEyJjwTYwvja2105",
+        "name": "grep_search",
+        "input": {
+          "path": "test/fixtures/rules/std_rule_cases",
+          "pattern": "violation",
+          "max_results": 20
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_DBGhyV1abz27Owk9NILU1710",
+        "name": "grep_search",
+        "input": {
+          "path": "test/fixtures/rules/std_rule_cases",
+          "pattern": "description",
+          "max_results": 20
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_Y9ehco6BnEyJjwTYwvja2105",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"test/fixtures/rules/std_rule_cases/L016.yml\",\n      \"line\": 102,\n      \"text\": \"  # a violation.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/fixtures/rules/std_rule_cases/L019.yml\",\n      \"line\": 3,\n      \"text\": \"leading_comma_violations:\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/fixtures/rules/std_rule_cases/L019.yml\",\n      \"line\": 15,\n      \"text\": \"leading_comma_violation_with_inline_comment:\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/fixtures/rules/std_rule_cases/L019.yml\",\n      \"line\": 58,\n      \"text\": \"leading_comma_violations_in_with_statement:\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/fixtures/rules/std_rule_cases/L019.yml\",\n      \"line\": 105,\n      \"text\": \"trailing_comma_violations:\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 5,\n  \"truncated\": false\n}"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_DBGhyV1abz27Owk9NILU1710",
+        "content": "{\n  \"matches\": [],\n  \"count\": 0,\n  \"truncated\": false\n}"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "The YAML test cases don't check descriptions. So I mostly need to change the rule and update tests if needed. Let me check how the test harness parses these YAML files to see if there's a \"violations\" or \"fail_str\" structure. Let me look at the test that runs these.",
+        "signature": "380e1fba-b738-432b-91f2-1068195dd1d7"
+      },
+      {
+        "type": "text",
+        "text": "Let me look at the test harness that runs these YAML cases to understand supported fields."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_4UNBGJtZo2btX65RH0K15098",
+        "name": "grep_search",
+        "input": {
+          "pattern": "std_rule_cases",
+          "glob": "*.py",
+          "max_results": 20
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_4UNBGJtZo2btX65RH0K15098",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"test/rules/yaml_test_cases_test.py\",\n      \"line\": 14,\n      \"text\": \"    test_cases_path=os.path.join(\\\"test/fixtures/rules/std_rule_cases\\\", \\\"*.yml\\\")\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 1,\n  \"truncated\": false\n}"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "",
+        "signature": "d46fa706-9f42-43a8-8f9c-9deb64d879a9"
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_ET_vzTN4wqZ3vIfguKj36Yc7255",
+        "name": "read_file",
+        "input": {
+          "path": "test/rules/yaml_test_cases_test.py"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_ET_vzTN4wqZ3vIfguKj36Yc7255",
+        "content": "\"\"\"Runs the rule test cases.\"\"\"\nimport os\nimport logging\nimport pytest\nfrom sqlfluff.testing.rules import (\n    load_test_cases,\n    rules__test_helper,\n    get_rule_from_set,\n)\nfrom sqlfluff.core.rules.doc_decorators import is_fix_compatible\nfrom sqlfluff.core.config import FluffConfig\n\nids, test_cases = load_test_cases(\n    test_cases_path=os.path.join(\"test/fixtures/rules/std_rule_cases\", \"*.yml\")\n)\n\n\n@pytest.mark.parametrize(\"test_case\", test_cases, ids=ids)\ndef test__rule_test_case(test_case, caplog):\n    \"\"\"Run the tests.\"\"\"\n    with caplog.at_level(logging.DEBUG, logger=\"sqlfluff.rules\"):\n        res = rules__test_helper(test_case)\n        if res is not None and res != test_case.fail_str:\n            cfg = FluffConfig(configs=test_case.configs)\n            rule = get_rule_from_set(test_case.rule, config=cfg)\n            assert is_fix_compatible(\n                rule\n            ), f\"Rule {test_case.rule} returned fixes but does not specify \"\n            '\"@document_fix_compatible\".'\n\n\ndef test__rule_test_global_config():\n    \"\"\"Test global config in rule test cases.\"\"\"\n    ids, test_cases = load_test_cases(\n        os.path.join(\"test/fixtures/rules/R001_global_config_test.yml\")\n    )\n    assert len(test_cases) == 2\n    # tc1: overwrites global config\n    assert test_cases[0].configs[\"core\"][\"dialect\"] == \"ansi\"\n    # tc2: global config is used\n    assert test_cases[1].configs[\"core\"][\"dialect\"] == \"exasol\"\n"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Let me look at the testing rules helper to see what fields a test case supports (maybe it supports \"fix_str\" and \"violations\").",
+        "signature": "7f6209c3-44d9-43fc-8a88-e4ec6f989d59"
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_fpRi38QvYxTd496iz7O60150",
+        "name": "read_file",
+        "input": {
+          "path": "src/sqlfluff/testing/rules.py"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_fpRi38QvYxTd496iz7O60150",
+        "content": "\"\"\"Testing utils for rule plugins.\"\"\"\nfrom sqlfluff.core import Linter\nfrom sqlfluff.core.errors import SQLParseError, SQLTemplaterError\nfrom sqlfluff.core.rules import get_ruleset\nfrom sqlfluff.core.config import FluffConfig\nfrom typing import Tuple, List, NamedTuple, Optional\nfrom glob import glob\n\nimport pytest\nimport yaml\n\n\nclass RuleTestCase(NamedTuple):\n    \"\"\"Used like a dataclass by rule tests.\"\"\"\n\n    rule: Optional[str] = None\n    desc: Optional[str] = None\n    pass_str: Optional[str] = None\n    fail_str: Optional[str] = None\n    fix_str: Optional[str] = None\n    configs: Optional[dict] = None\n    skip: Optional[str] = None\n    line_numbers: List[int] = []\n\n\ndef load_test_cases(\n    test_cases_path: str,\n) -> Tuple[List[str], List[RuleTestCase]]:\n    \"\"\"Load rule test cases from YAML files.\"\"\"\n    ids = []\n    test_cases = []\n\n    for path in sorted(glob(test_cases_path)):\n        with open(path) as f:\n            raw = f.read()\n\n        y = yaml.safe_load(raw)\n\n        rule = y.pop(\"rule\")\n        global_config = y.pop(\"configs\", None)\n        if global_config:\n            for i in y:\n                if not (\"configs\" in y[i].keys()):\n                    y[i].update({\"configs\": global_config})\n        ids.extend([rule + \"_\" + t for t in y])\n        test_cases.extend([RuleTestCase(rule=rule, **v) for k, v in y.items()])\n\n    return ids, test_cases\n\n\ndef get_rule_from_set(code, config):\n    \"\"\"Fetch a rule from the rule set.\"\"\"\n    for r in get_ruleset().get_rulelist(config=config):\n        if r.code == code:\n            return r\n    raise ValueError(f\"{code!r} not in {get_ruleset()!r}\")\n\n\ndef assert_rule_fail_in_sql(code, sql, configs=None, line_numbers=None):\n    \"\"\"Assert that a given rule does fail on the given sql.\"\"\"\n    # Set up the config to only use the rule we are testing.\n    cfg = FluffConfig(configs=configs, overrides={\"rules\": code})\n    # Lint it using the current config (while in fix mode)\n    linted = Linter(config=cfg).lint_string(sql, fix=True)\n    lerrs = linted.get_violations()\n    print(f\"Errors Found: {lerrs}\")\n    for e in lerrs:\n        if e.desc().startswith(\"Unexpected exception\"):\n            pytest.fail(f\"Linter failed with {e.desc()}\")  # pragma: no cover\n    parse_errors = list(\n        filter(lambda v: isinstance(v, (SQLParseError, SQLTemplaterError)), lerrs)\n    )\n    if parse_errors:\n        pytest.fail(f\"Found the following parse errors in test case: {parse_errors}\")\n    if not any(v.rule.code == code for v in lerrs):\n        pytest.fail(\n            f\"No {code} failures found in query which should fail.\",\n            pytrace=False,\n        )\n    if line_numbers:\n        actual_line_numbers = [e.line_no for e in lerrs]\n        if line_numbers != actual_line_numbers:  # pragma: no cover\n            pytest.fail(\n                \"Expected errors on lines {}, but got errors on lines {}\".format(\n                    line_numbers, actual_line_numbers\n                )\n            )\n    fixed, _ = linted.fix_string()\n    return fixed\n\n\ndef assert_rule_pass_in_sql(code, sql, configs=None):\n    \"\"\"Assert that a given rule doesn't fail on the given sql.\"\"\"\n    # Configs allows overrides if we want to use them.\n    cfg = FluffConfig(configs=configs)\n    r = get_rule_from_set(code, config=cfg)\n    linter = Linter(config=cfg)\n    rendered = linter.render_string(sql, fname=\"<STR>\", config=cfg, encoding=\"utf-8\")\n    parsed = linter.parse_rendered(rendered, recurse=True)\n    if parsed.violations:\n        pytest.fail(parsed.violations[0].desc() + \"\\n\" + parsed.tree.stringify())\n    print(f\"Parsed:\\n {parsed.tree.stringify()}\")\n    lerrs, _, _, _ = r.crawl(\n        parsed.tree, [], dialect=cfg.get(\"dialect_obj\"), templated_file=rendered[0]\n    )\n    print(f\"Errors Found: {lerrs}\")\n    if any(v.rule.code == code for v in lerrs):\n        pytest.fail(f\"Found {code} failures in query which should pass.\", pytrace=False)\n\n\ndef assert_rule_raises_violations_in_file(rule, fpath, violations, fluff_config):\n    \"\"\"Assert that a given rule raises given errors in specific positions of a file.\"\"\"\n    lntr = Linter(config=fluff_config)\n    lnt = lntr.lint_path(fpath)\n    # Reformat the test data to match the format we're expecting. We use\n    # sets because we really don't care about order and if one is missing,\n    # we don't care about the orders of the correct ones.\n    assert set(lnt.check_tuples()) == {(rule, v[0], v[1]) for v in violations}\n\n\ndef rules__test_helper(test_case):\n    \"\"\"Test that a rule passes/fails on a set of test_cases.\n\n    Optionally, also test the fixed string if provided in the test case.\n    \"\"\"\n    if test_case.skip:\n        pytest.skip(test_case.skip)\n\n    if test_case.pass_str:\n        assert_rule_pass_in_sql(\n            test_case.rule,\n            test_case.pass_str,\n            configs=test_case.configs,\n        )\n    if test_case.fail_str:\n        res = assert_rule_fail_in_sql(\n            test_case.rule,\n            test_case.fail_str,\n            configs=test_case.configs,\n            line_numbers=test_case.line_numbers,\n        )\n        # If a `fixed` value is provided then check it matches\n        if test_case.fix_str:\n            assert res == test_case.fix_str\n"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "The test harness doesn't check descriptions directly in the YAML test cases. So I don't need to modify tests for descriptions. But there might be other tests that reference L060's output. Let me search the whole test suite and docs for the old message.\n\nLet me search for \"instead of '\\\" in tests / docs. Actually let me search for \"NVL\" everywhere.",
+        "signature": "21eb9f55-b496-4550-babe-bc80022e640f"
+      },
+      {
+        "type": "text",
+        "text": "Let me search the whole repo for any references to the L060 message (e.g., docs, tests, CLI fixtures)."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_pcLWxHqD3F6SL13oHIKz3146",
+        "name": "grep_search",
+        "input": {
+          "max_results": 50,
+          "pattern": "NVL"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_sVLankksiYiJ26arDTOR3689",
+        "name": "grep_search",
+        "input": {
+          "max_results": 50,
+          "pattern": "IFNULL"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_pcLWxHqD3F6SL13oHIKz3146",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"src/sqlfluff/dialects/dialect_exasol_keywords.py\",\n      \"line\": 671,\n      \"text\": \"    \\\"NVL\\\",\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/dialects/dialect_exasol_keywords.py\",\n      \"line\": 672,\n      \"text\": \"    \\\"NVL2\\\",\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 12,\n      \"text\": \"    \\\"\\\"\\\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 15,\n      \"text\": \"    | ``IFNULL`` or ``NVL`` are used to fill ``NULL`` values.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 29,\n      \"text\": \"    | and BigQuery doesn't support ``NVL``.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 41,\n      \"text\": \"        \\\"\\\"\\\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\\\"\\\"\\\"\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 46,\n      \"text\": \"        # Only care if the function is ``IFNULL`` or ``NVL``.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 47,\n      \"text\": \"        if context.segment.raw_upper not in {\\\"IFNULL\\\", \\\"NVL\\\"}:\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 50,\n      \"text\": \"        # Create fix to replace ``IFNULL`` or ``NVL`` with ``COALESCE``.\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 9,\n  \"truncated\": false\n}"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_sVLankksiYiJ26arDTOR3689",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"src/sqlfluff/dialects/dialect_exasol_keywords.py\",\n      \"line\": 200,\n      \"text\": \"    \\\"IFNULL\\\",\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/dialects/dialect_exasol_keywords.py\",\n      \"line\": 845,\n      \"text\": \"    \\\"ZEROIFNULL\\\",\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 12,\n      \"text\": \"    \\\"\\\"\\\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 15,\n      \"text\": \"    | ``IFNULL`` or ``NVL`` are used to fill ``NULL`` values.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 28,\n      \"text\": \"    | whereas Redshift doesn't support ``IFNULL``\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 41,\n      \"text\": \"        \\\"\\\"\\\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\\\"\\\"\\\"\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 46,\n      \"text\": \"        # Only care if the function is ``IFNULL`` or ``NVL``.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 47,\n      \"text\": \"        if context.segment.raw_upper not in {\\\"IFNULL\\\", \\\"NVL\\\"}:\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"src/sqlfluff/rules/L060.py\",\n      \"line\": 50,\n      \"text\": \"        # Create fix to replace ``IFNULL`` or ``NVL`` with ``COALESCE``.\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 9,\n  \"truncated\": false\n}"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "No tests reference the message. Now let me make the edit to L060.py.\n\nI'll update the `_eval` method to include a specific description. Let me decide on the format. I'll match the issue example: \"Use 'COALESCE' instead of 'IFNULL'.\"\n\nLet me use `context.segment.raw_upper` for consistency with the existing uppercase phrasing. Actually, hmm, let me reconsider. Other rules use raw. But the docstring default uses uppercase. Given the issue example uses uppercase, I'll use raw_upper.\n\nWait, but actually let me reconsider - maybe better to reflect actual text. Let me think about which is more appropriate for this codebase at that time. The rule matches `IFNULL` or `NVL` uppercase in the set check. The message example in the issue is uppercase. I'll go with `raw_upper`.\n\nHmm, but there's a subtle issue: if someone writes `ifnull`, the message would say 'IFNULL' which may look odd but is consistent with the docstring. I think uppercase is fine and matches the issue.\n\nLet me now edit.",
+        "signature": "6c778c61-8d7e-463f-a4dd-d0cb3e3e7110"
+      },
+      {
+        "type": "text",
+        "text": "The change is straightforward. Let me update the rule to emit a specific message."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_B4RXl7Ofggdw7mTvaGwB7298",
+        "name": "edit_file",
+        "input": {
+          "path": "src/sqlfluff/rules/L060.py",
+          "old_text": "        # Create fix to replace ``IFNULL`` or ``NVL`` with ``COALESCE``.\n        fix = LintFix.replace(\n            context.segment,\n            [\n                CodeSegment(\n                    raw=\"COALESCE\",\n                    name=\"function_name_identifier\",\n                    type=\"function_name_identifier\",\n                )\n            ],\n        )\n\n        return LintResult(context.segment, [fix])",
+          "new_text": "        # Create fix to replace ``IFNULL`` or ``NVL`` with ``COALESCE``.\n        fix = LintFix.replace(\n            context.segment,\n            [\n                CodeSegment(\n                    raw=\"COALESCE\",\n                    name=\"function_name_identifier\",\n                    type=\"function_name_identifier\",\n                )\n            ],\n        )\n\n        return LintResult(\n            context.segment,\n            [fix],\n            description=(\n                f\"Use 'COALESCE' instead of '{context.segment.raw_upper}'.\"\n            ),\n        )"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_B4RXl7Ofggdw7mTvaGwB7298",
+        "content": "edited src/sqlfluff/rules/L060.py: 1 replacement(s), 1978 bytes, sha256=ade02d457c509eda69dbef58d364adfe5362c0eb180323d5c984a8913a115030"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Now let me verify the file.",
+        "signature": "88fecebc-d744-43ce-ad0d-18a1d62fb372"
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_BotGhc8Sc62J72OrL8IU6370",
+        "name": "read_file",
+        "input": {
+          "path": "src/sqlfluff/rules/L060.py"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_BotGhc8Sc62J72OrL8IU6370",
+        "content": "\"\"\"Implementation of Rule L060.\"\"\"\n\nfrom typing import Optional\n\nfrom sqlfluff.core.parser.segments.raw import CodeSegment\nfrom sqlfluff.core.rules.base import BaseRule, LintFix, LintResult, RuleContext\nfrom sqlfluff.core.rules.doc_decorators import document_fix_compatible\n\n\n@document_fix_compatible\nclass Rule_L060(BaseRule):\n    \"\"\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\n\n    | **Anti-pattern**\n    | ``IFNULL`` or ``NVL`` are used to fill ``NULL`` values.\n\n    .. code-block:: sql\n\n        SELECT ifnull(foo, 0) AS bar,\n        FROM baz;\n\n        SELECT nvl(foo, 0) AS bar,\n        FROM baz;\n\n    | **Best practice**\n    | Use ``COALESCE`` instead.\n    | ``COALESCE`` is universally supported,\n    | whereas Redshift doesn't support ``IFNULL``\n    | and BigQuery doesn't support ``NVL``.\n    | Additionally ``COALESCE`` is more flexible\n    | and accepts an arbitrary number of arguments.\n\n    .. code-block:: sql\n\n        SELECT coalesce(foo, 0) AS bar,\n        FROM baz;\n\n    \"\"\"\n\n    def _eval(self, context: RuleContext) -> Optional[LintResult]:\n        \"\"\"Use ``COALESCE`` instead of ``IFNULL`` or ``NVL``.\"\"\"\n        # We only care about function names.\n        if context.segment.name != \"function_name_identifier\":\n            return None\n\n        # Only care if the function is ``IFNULL`` or ``NVL``.\n        if context.segment.raw_upper not in {\"IFNULL\", \"NVL\"}:\n            return None\n\n        # Create fix to replace ``IFNULL`` or ``NVL`` with ``COALESCE``.\n        fix = LintFix.replace(\n            context.segment,\n            [\n                CodeSegment(\n                    raw=\"COALESCE\",\n                    name=\"function_name_identifier\",\n                    type=\"function_name_identifier\",\n                )\n            ],\n        )\n\n        return LintResult(\n            context.segment,\n            [fix],\n            description=(\n                f\"Use 'COALESCE' instead of '{context.segment.raw_upper}'.\"\n            ),\n        )\n"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Now let me run the tests to make sure everything works. Let me run the tests.\n\nActually, let me also add test cases to the YAML? The test harness doesn't check description, so it's not necessary. But let me also check the test that reads CLI output fixtures for the \"Use 'COALESCE'\" message, e.g., test/fixtures/linter or something. We already searched the whole repo for \"Use 'COALESCE'\" and found nothing.\n\nLet me run the tests.",
+        "signature": "1a4b0bce-c38b-4210-aea0-de35d4e5448b"
+      },
+      {
+        "type": "text",
+        "text": "Now let me run the tests to make sure everything works."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_kxE0hTA1KPAWTTyrTDLj1146",
+        "name": "run_tests",
+        "input": {}
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_kxE0hTA1KPAWTTyrTDLj1146",
+        "content": "{\n  \"exit_code\": 5,\n  \"duration_ms\": 3138,\n  \"passed\": 0,\n  \"failed\": 0,\n  \"error\": 0,\n  \"skipped\": 0,\n  \"failures\": [],\n  \"output_tail\": \"\\n36 deselected in 0.14s\\n\"\n}",
+        "is_error": true
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Exit code 5 means no tests collected. The `run_tests` tool runs the checkout's relevant tests. Hmm, it deselected 36. Maybe the default test command deselects some. Let me try to run the specific tests manually. But run_tests takes no arguments. Let me see if there's a way.\n\nActually the tool says \"Run this checkout's existing relevant tests in the prepared Python environment.\" It ran and deselected 36. Maybe it runs pytest with some markers. Exit code 5 = no tests collected.\n\nHmm. Let me look at how tests are configured. Let me check pyproject/setup.cfg/tox for pytest config.",
+        "signature": "26a47545-bb6d-4432-80c9-3c98feff2910"
+      },
+      {
+        "type": "text",
+        "text": "The test runner deselected all tests. Let me check the pytest configuration to understand."
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_UV6vAXNozleN2ZKeuJHj9550",
+        "name": "grep_search",
+        "input": {
+          "max_results": 30,
+          "pattern": "pytest|addopts|markers|deselect",
+          "glob": "*.cfg"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_ENS4awECUStJg4LqBb5f2775",
+        "name": "list_dir",
+        "input": {
+          "path": "."
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_UV6vAXNozleN2ZKeuJHj9550",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"setup.cfg\",\n      \"line\": 79,\n      \"text\": \"    pytest\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 1,\n  \"truncated\": false\n}"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_ENS4awECUStJg4LqBb5f2775",
+        "content": "/mnt/e/project_2026/python/KamaClaude/workspace/swe-lite-smoke-20261001-retry/sqlfluff__sqlfluff-2419/\n├── .git/\n│   ├── branches/\n│   ├── hooks/\n│   ├── info/\n│   ├── logs/\n│   ├── objects/\n│   ├── refs/\n│   ├── FETCH_HEAD\n│   ├── HEAD\n│   ├── config\n│   ├── description\n│   ├── index\n│   └── shallow\n├── .github/\n│   ├── ISSUE_TEMPLATE/\n│   ├── workflows/\n│   ├── FUNDING.yml\n│   ├── PULL_REQUEST_TEMPLATE.md\n│   ├── codecov.yml\n│   └── release-drafter.yml\n├── .pytest_cache/\n│   ├── v/\n│   ├── .gitignore\n│   ├── CACHEDIR.TAG\n│   └── README.md\n├── benchmarks/\n│   ├── bench_002/\n│   ├── bench_001_package.sql\n│   └── benchmarks.yml\n├── docs/\n│   ├── source/\n│   ├── Makefile\n│   ├── README.md\n│   ├── make.bat\n│   └── requirements.txt\n├── examples/\n│   ├── 01_basic_api_usage.py\n│   ├── 02_timing_api_steps.py\n│   └── 03_getting_rules_and_dialects.py\n├── images/\n│   ├── README.md\n│   ├── sqlfluff-lrg-border.png\n│   ├── sqlfluff-lrg-border.svg\n│   ├── sqlfluff-wide-lrg.png\n│   ├── sqlfluff-wide-media-preview-banner.png\n│   ├── sqlfluff-wide.png\n│   └── sqlfluff-wide.svg\n├── plugins/\n│   ├── sqlfluff-plugin-example/\n│   └── sqlfluff-templater-dbt/\n├── src/\n│   ├── sqlfluff/\n│   └── sqlfluff.egg-info/\n├── test/\n│   ├── __pycache__/\n│   ├── api/\n│   ├── cli/\n│   ├── core/\n│   ├── dialects/\n│   ├── fixtures/\n│   ├── rules/\n│   ├── __init__.py\n│   ├── conftest.py\n│   ├── diff_quality_plugin_test.py\n│   ├── generate_parse_fixture_yml.py\n│   └── test_testing.py\n├── .deepsource.toml\n├── .dockerignore\n├── .editorconfig\n├── .gitattributes\n├── .gitignore\n├── .pre-commit-config.yaml\n├── .pre-commit-hooks.yaml\n├── .readthedocs.yml\n├── .yamllint\n├── CHANGELOG.md\n├── CODE_OF_CONDUCT.md\n├── CONTRIBUTING.md\n├── Dockerfile\n├── LICENSE.md\n├── MANIFEST.in\n├── README.md\n├── mypy.ini\n├── pytest.ini\n├── requirements.txt\n├── requirements_dev.txt\n├── setup.cfg\n├── setup.py\n├── tox.ini\n└── util.py"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "",
+        "signature": "9c223a83-5697-44ee-bec6-836f9f828994"
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_ET_fgnUJyhMWJ5ffgR4q2cr2957",
+        "name": "read_file",
+        "input": {
+          "path": "pytest.ini"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_ET_E02doMMc9AyoZaJOywHM4545",
+        "name": "list_dir",
+        "input": {
+          "path": "test/rules"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_ET_fgnUJyhMWJ5ffgR4q2cr2957",
+        "content": "[pytest]\nmarkers =\n    dbt: marks tests needing the \"dbt\" plugin (deselect with '-m \"not dbt\"')\n"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_ET_E02doMMc9AyoZaJOywHM4545",
+        "content": "/mnt/e/project_2026/python/KamaClaude/workspace/swe-lite-smoke-20261001-retry/sqlfluff__sqlfluff-2419/test/rules/\n├── __pycache__/\n│   └── std_test.cpython-310-pytest-7.4.4.pyc\n├── std_L003_L036_L039_combo_test.py\n├── std_L003_test.py\n├── std_L007_test.py\n├── std_L008_test.py\n├── std_L009_L052_test.py\n├── std_L016_L36_combo_test.py\n├── std_L019_test.py\n├── std_L020_test.py\n├── std_L027_test.py\n├── std_L048_test.py\n├── std_L054_test.py\n├── std_fix_auto_test.py\n├── std_roundtrip_test.py\n├── std_test.py\n└── yaml_test_cases_test.py"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "The test runner ran pytest and deselected 36. Maybe the default test command targets a specific set of tests related to the change, or maybe the run_tests tool runs a curated subset. Exit code 5 with \"36 deselected\" — the 36 might be the yaml test cases? No, there are hundreds.\n\nActually \"36 deselected\" - maybe the test command uses `-m \"not dbt\"` and selected some tests, but all were deselected? No, deselected means -k or -m filtered them out.\n\nLet me try running the yaml test cases manually via a Python invocation. But run_tests takes no arguments. Hmm. Let me try to run the specific test file using... there's no shell tool.\n\nWait, maybe the run_tests tool has a prepared command that runs a specific subset. Let me just try running it again — maybe it's flaky or maybe the deselection is due to the marker config in a conftest.\n\nActually, let me look at test/conftest.py.",
+        "signature": "4c034ec8-0a6e-4b13-b980-7174f69e7744"
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_3ZvMO8lxu5JoMKS99YNt1935",
+        "name": "read_file",
+        "input": {
+          "path": "test/conftest.py"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_GoDqyA90h6zUXEFa1cnL2156",
+        "name": "read_file",
+        "input": {
+          "path": "tox.ini"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_3ZvMO8lxu5JoMKS99YNt1935",
+        "content": "\"\"\"Common Test Fixtures.\"\"\"\nimport hashlib\nimport io\nimport os\n\nimport pytest\nimport yaml\n\nfrom sqlfluff.cli.commands import quoted_presenter\nfrom sqlfluff.core import FluffConfig\nfrom sqlfluff.core.parser import Parser, Lexer\nfrom sqlfluff.core.parser.markers import PositionMarker\nfrom sqlfluff.core.parser.segments import (\n    Indent,\n    Dedent,\n    WhitespaceSegment,\n    NewlineSegment,\n    SymbolSegment,\n    CommentSegment,\n    CodeSegment,\n)\nfrom sqlfluff.core.templaters import TemplatedFile\n\n# When writing YAML files, double quotes string values needing escapes.\nyaml.add_representer(str, quoted_presenter)\n\n\ndef get_parse_fixtures(fail_on_missing_yml=False):\n    \"\"\"Search for all parsing fixtures.\"\"\"\n    parse_success_examples = []\n    parse_structure_examples = []\n    # Generate the filenames for each dialect from the parser test directory\n    for d in os.listdir(os.path.join(\"test\", \"fixtures\", \"dialects\")):\n        # Ignore documentation\n        if d.endswith(\".md\"):\n            continue\n        # assume that d is now the name of a dialect\n        dirlist = os.listdir(os.path.join(\"test\", \"fixtures\", \"dialects\", d))\n        for f in dirlist:\n            has_yml = False\n            if f.endswith(\".sql\"):\n                root = f[:-4]\n                # only look for sql files\n                parse_success_examples.append((d, f))\n                # Look for the code_only version of the structure\n                y = root + \".yml\"\n                if y in dirlist:\n                    parse_structure_examples.append((d, f, True, y))\n                    has_yml = True\n                # Look for the non-code included version of the structure\n                y = root + \"_nc.yml\"\n                if y in dirlist:\n                    parse_structure_examples.append((d, f, False, y))\n                    has_yml = True\n                if not has_yml and fail_on_missing_yml:\n                    raise (\n                        Exception(\n                            f\"Missing .yml file for {os.path.join(d, f)}. Run the \"\n                            \"test/generate_parse_fixture_yml.py script!\"\n                        )\n                    )\n    return parse_success_examples, parse_structure_examples\n\n\ndef make_dialect_path(dialect, fname):\n    \"\"\"Work out how to find paths given a dialect and a file name.\"\"\"\n    return os.path.join(\"test\", \"fixtures\", \"dialects\", dialect, fname)\n\n\ndef load_file(dialect, fname):\n    \"\"\"Load a file.\"\"\"\n    with open(make_dialect_path(dialect, fname)) as f:\n        raw = f.read()\n    return raw\n\n\ndef process_struct(obj):\n    \"\"\"Process a nested dict or dict-like into a check tuple.\"\"\"\n    if isinstance(obj, dict):\n        return tuple((k, process_struct(obj[k])) for k in obj)\n    elif isinstance(obj, list):\n        # We'll assume that it's a list of dicts\n        if isinstance(obj[0], dict):\n            buff = [process_struct(elem) for elem in obj]\n            if any(len(elem) > 1 for elem in buff):\n                raise ValueError(f\"Not sure how to deal with multi key dict: {buff!r}\")\n            return tuple(elem[0] for elem in buff)\n        else:\n            raise TypeError(f\"Did not expect a list of {type(obj[0])}: {obj[0]!r}\")\n    elif isinstance(obj, (str, int, float)):\n        return str(obj)\n    elif obj is None:\n        return None\n    else:\n        raise TypeError(f\"Not sure how to deal with type {type(obj)}: {obj!r}\")\n\n\ndef parse_example_file(dialect, sqlfile):\n    \"\"\"Parse example SQL file, return parse tree.\"\"\"\n    config = FluffConfig(overrides=dict(dialect=dialect))\n    # Load the SQL\n    raw = load_file(dialect, sqlfile)\n    # Lex and parse the file\n    tokens, _ = Lexer(config=config).lex(raw)\n    tree = Parser(config=config).parse(tokens)\n    return tree\n\n\ndef compute_parse_tree_hash(tree):\n    \"\"\"Given a parse tree, compute a consistent hash value for it.\"\"\"\n    if tree:\n        r = tree.as_record(code_only=True, show_raw=True)\n        if r:\n            r_io = io.StringIO()\n            yaml.dump(r, r_io, sort_keys=False)\n            result = hashlib.blake2s(r_io.getvalue().encode(\"utf-8\")).hexdigest()\n            return result\n    return None\n\n\ndef load_yaml(fpath):\n    \"\"\"Load a yaml structure and process it into a tuple.\"\"\"\n    # Load raw file\n    with open(fpath) as f:\n        raw = f.read()\n    # Parse the yaml\n    obj = yaml.safe_load(raw)\n    # Return the parsed and structured object\n    _hash = None\n    if obj:\n        _hash = obj.pop(\"_hash\", None)\n    processed = process_struct(obj)\n    if processed:\n        return _hash, process_struct(obj)[0]\n    else:\n        return None, None\n\n\n@pytest.fixture()\ndef yaml_loader():\n    \"\"\"Return a yaml loading function.\"\"\"\n    # Return a function\n    return load_yaml\n\n\n@pytest.fixture(scope=\"module\")\ndef generate_test_segments():\n    \"\"\"Roughly generate test segments.\n\n    This is a factory function so that it works as a fixture,\n    but when actually used, this will return the inner function\n    which is what you actually need.\n    \"\"\"\n\n    def generate_test_segments_func(elems):\n        \"\"\"Roughly generate test segments.\n\n        This function isn't totally robust, but good enough\n        for testing. Use with caution.\n        \"\"\"\n        buff = []\n        raw_file = \"\".join(elems)\n        templated_file = TemplatedFile.from_string(raw_file)\n        idx = 0\n\n        for elem in elems:\n            if elem == \"<indent>\":\n                buff.append(\n                    Indent(\n                        pos_marker=PositionMarker.from_point(idx, idx, templated_file)\n                    )\n                )\n                continue\n            elif elem == \"<dedent>\":\n                buff.append(\n                    Dedent(\n                        pos_marker=PositionMarker.from_point(idx, idx, templated_file)\n                    )\n                )\n                continue\n\n            seg_kwargs = {}\n\n            if set(elem) <= {\" \", \"\\t\"}:\n                SegClass = WhitespaceSegment\n            elif set(elem) <= {\"\\n\"}:\n                SegClass = NewlineSegment\n            elif elem == \"(\":\n                SegClass = SymbolSegment\n                seg_kwargs = {\"name\": \"bracket_open\"}\n            elif elem == \")\":\n                SegClass = SymbolSegment\n                seg_kwargs = {\"name\": \"bracket_close\"}\n            elif elem.startswith(\"--\"):\n                SegClass = CommentSegment\n                seg_kwargs = {\"name\": \"inline_comment\"}\n            elif elem.startswith('\"'):\n                SegClass = CodeSegment\n                seg_kwargs = {\"name\": \"double_quote\"}\n            elif elem.startswith(\"'\"):\n                SegClass = CodeSegment\n                seg_kwargs = {\"name\": \"single_quote\"}\n            else:\n                SegClass = CodeSegment\n\n            # Set a none position marker which we'll realign at the end.\n            buff.append(\n                SegClass(\n                    raw=elem,\n                    pos_marker=PositionMarker(\n                        slice(idx, idx + len(elem)),\n                        slice(idx, idx + len(elem)),\n                        templated_file,\n                    ),\n                    **seg_kwargs,\n                )\n            )\n            idx += len(elem)\n\n        return tuple(buff)\n\n    # Return the function\n    return generate_test_segments_func\n"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_GoDqyA90h6zUXEFa1cnL2156",
+        "content": "[tox]\nenvlist = generate-fixture-yml, linting, doclinting, docbuild, cov-init, py{37,38,39,310}, dbt{017,018,019,020,021,100}-py{37,38,39,310}, cov-report, bench, mypy, winpy, dbt{017,018,019,020,021,100}-winpy, yamllint\n\n[testenv]\npassenv = CI CIRCLECI CIRCLE_* HOME SQLFLUFF_BENCHMARK_API_KEY\n# Have option to explictly set TMPDIR for python as on GitHub Action Windows\n# machines it doesn't read this from env and resets to system default, which\n# is often on different drive (C) from working dir (D), which causes problems.\nsetenv =\n    SQLFLUFF_TESTENV = 1\n    COVERAGE_FILE = .coverage.{envname}\n    winpy: TMPDIR = temp_pytest\nallowlist_externals =\n    make\ndeps =\n    # -U keeps dev requirements up-to-date\n    -Urrequirements_dev.txt\n    # Add the example plugin\n    plugins/sqlfluff-plugin-example\n    # Define dbt versions\n    dbt017: dbt-core==0.17.2\n    dbt018: dbt-core==0.18.2\n    dbt019: dbt-core==0.19.2\n    dbt020: dbt-core==0.20.2\n    dbt021: dbt-core==0.21.0\n    dbt100: dbt-core==1.0.0\n    # Define dbt-postgres versions\n    dbt017: dbt-postgres==0.17.2\n    dbt018: dbt-postgres==0.18.2\n    dbt019: dbt-postgres==0.19.2\n    dbt020: dbt-postgres==0.20.2\n    dbt021: dbt-postgres==0.21.0\n    dbt100: dbt-postgres==1.0.0\n    # Install the plugins as required\n    dbt{017,018,019,020,021,100}: plugins/sqlfluff-templater-dbt\n# Include any other steps necessary for testing below.\n# {posargs} is there to allow us to specify specific tests, which\n# can then be invoked from tox by calling e.g.\n# tox -e py35 -- project/tests/test_file.py::TestClassName::test_method\ncommands =\n    # For the dbt test cases install dependencies.\n    python {toxinidir}/plugins/sqlfluff-templater-dbt/test/generate_packages_yml.py {toxinidir}/plugins/sqlfluff-templater-dbt/test/fixtures/dbt/dbt_project\n    dbt{017,018,019,020,021,100}: dbt deps --project-dir {toxinidir}/plugins/sqlfluff-templater-dbt/test/fixtures/dbt/dbt_project --profiles-dir {toxinidir}/plugins/sqlfluff-templater-dbt/test/fixtures/dbt\n    # Clean up from previous tests\n    python {toxinidir}/util.py clean-tests\n    # Run tests\n    pytest -vv -rs --cov=sqlfluff --cov-report=xml {posargs: {toxinidir}/test}\n\n[testenv:cov-init]\nsetenv =\n    COVERAGE_FILE = .coverage\ncommands =\n    coverage erase\n\n[testenv:bench]\ncommands =\n    python {toxinidir}/util.py benchmark -f {toxinidir}/benchmarks/benchmarks.yml\n\n[testenv:cov-report]\nsetenv =\n    COVERAGE_FILE = .coverage\ncommands =\n    coverage combine\n    # Exclude dbt templater by default as those tests do not run without dbt\n    coverage report --fail-under=100 --show-missing --omit \"*templaters/dbt.py,*/dbt_templater/*\"\n\n# Have copy of above for full coverage - including dbt - for those that want it\n[testenv:cov-report-dbt]\nsetenv =\n    COVERAGE_FILE = .coverage\ncommands =\n    coverage combine\n    coverage report --fail-under=100 --show-missing\n\n[testenv:generate-fixture-yml]\ncommands = python {toxinidir}/test/generate_parse_fixture_yml.py\n\n[testenv:linting]\nskip_install = true\ncommands = flake8\n\n[testenv:yamllint]\nskip_install = true\ndeps = yamllint\ncommands = yamllint -c .yamllint .\n\n[testenv:doclinting]\nskip_install = true\ncommands = doc8 {toxinidir}/docs/source --file-encoding utf8\n\n[testenv:docbuild]\ndeps =\n    # -U keeps all requirements up-to-date\n    -Urdocs/requirements.txt\ncommands = make -C {toxinidir}/docs html\n\n[testenv:mypy]\nskip_install = true\ncommands = mypy {toxinidir}/src/sqlfluff\n\n[testenv:build-dist]\nskip_install = true\ndeps =\n    build\ncommands =\n    python -m build --sdist --wheel {posargs: {toxinidir}}\n\n[testenv:check-dist]\nskip_install = true\ndeps =\n    twine\ncommands =\n    twine check {toxinidir}/dist/*\n\n[testenv:publish-dist]\nskip_install = true\ndeps =\n    {[testenv:build-dist]deps}\n    twine\ncommands =\n    {[testenv:build-dist]commands}\n    twine upload --skip-existing {toxinidir}/dist/*\n\n[testenv:pre-commit]\nskip_install = true\ndeps = pre-commit\ncommands =\n    pre-commit {posargs:run --all-files}\n\n[flake8]\n# Ignore:\n# W503: Line breaks before binary operators\n# D107: Don't require docstrings on __init__\n# D105: Don't require docstrings on magic methods\nignore = W503, D107, D105, D418\nexclude = .git,__pycache__,env,.tox,build,.venv,venv\nmax-line-length = 88\nextend-ignore =\n    # See https://github.com/PyCQA/pycodestyle/issues/373\n    E203,\n# sqlfluff uses flake8-docstrings https://pypi.org/project/flake8-docstrings/\n# this is to assist with the sphinx based autodoc\ndocstring-convention = google\n\n[pytest]\npython_files = *_test.py\ntestpaths = test\n\n[coverage:run]\nsource = src/sqlfluff\nomit = src/sqlfluff/__main__.py\n\n[coverage:report]\nexclude_lines =\n    sys.version_info\n    pragma: no cover\n"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "The `run_tests` tool reported \"36 deselected\". Maybe the tool's default command is `pytest -m \"not dbt\" -k \"...\"`? Hmm. Or maybe it's testing only the changed file's tests. Since my change is in L060, maybe there's a specific test. Let me check std_test.py for a test referencing L060.\n\nActually, the yaml test file is `yaml_test_cases_test.py`. And there are 36 yml test case... no.\n\nLet me reconsider: exit code 5 = no tests ran. \"36 deselected\". So pytest collected 36 tests but deselected all of them via -m or -k. That's odd.\n\nMaybe the run_tests command is fixed and targets specific test node ids that don't exist. Let me just try again but perhaps it depends on file state.\n\nActually, I cannot pass args to run_tests. Let me check if there's some harness config. Let me look at std_test.py to see if there's an L060 test.",
+        "signature": "92e1839c-09e1-4ec8-b43d-4aceb3265ac5"
+      },
+      {
+        "type": "tool_use",
+        "id": "call_00_smls4FQWoHUNrtXHEkds8410",
+        "name": "grep_search",
+        "input": {
+          "max_results": 30,
+          "path": "test",
+          "pattern": "L060"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "call_01_Hm3jTpTUDtf4xuMWs4Yh1944",
+        "name": "grep_search",
+        "input": {
+          "max_results": 30,
+          "path": "test",
+          "pattern": "deselect|not dbt|marker"
+        }
+      }
+    ]
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_00_smls4FQWoHUNrtXHEkds8410",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"test/fixtures/rules/std_rule_cases/L060.yml\",\n      \"line\": 1,\n      \"text\": \"rule: L060\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 1,\n  \"truncated\": false\n}"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call_01_Hm3jTpTUDtf4xuMWs4Yh1944",
+        "content": "{\n  \"matches\": [\n    {\n      \"path\": \"test/conftest.py\",\n      \"line\": 12,\n      \"text\": \"from sqlfluff.core.parser.markers import PositionMarker\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/conftest.py\",\n      \"line\": 170,\n      \"text\": \"                        pos_marker=PositionMarker.from_point(idx, idx, templated_file)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/conftest.py\",\n      \"line\": 177,\n      \"text\": \"                        pos_marker=PositionMarker.from_point(idx, idx, templated_file)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/conftest.py\",\n      \"line\": 206,\n      \"text\": \"            # Set a none position marker which we'll realign at the end.\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/conftest.py\",\n      \"line\": 210,\n      \"text\": \"                    pos_marker=PositionMarker(\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/cli/formatters_test.py\",\n      \"line\": 7,\n      \"text\": \"from sqlfluff.core.parser.markers import PositionMarker\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/dialects/conftest.py\",\n      \"line\": 72,\n      \"text\": \"        seg = Seg(seg_list, pos_marker=seg_list[0].pos_marker)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/conftest.py\",\n      \"line\": 23,\n      \"text\": \"        pos_marker=main_list[-1].get_end_point_marker(),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 43,\n      \"text\": \"        KeywordSegment(elem.raw, pos_marker=elem.pos_marker)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 225,\n      \"text\": \"            KeywordSegment(\\\"bar\\\", bracket_seg_list[0].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 241,\n      \"text\": \"            KeywordSegment(\\\"foo\\\", bracket_seg_list[8].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 365,\n      \"text\": \"            KeywordSegment(\\\"bar\\\", seg_list[0].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 413,\n      \"text\": \"            KeywordSegment(\\\"foo\\\", seg_list[2].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 416,\n      \"text\": \"            KeywordSegment(\\\"foo\\\", seg_list[2].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 417,\n      \"text\": \"            KeywordSegment(\\\"baar\\\", seg_list[3].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 432,\n      \"text\": \"            KeywordSegment(\\\"foo\\\", seg_list[2].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 435,\n      \"text\": \"            KeywordSegment(\\\"foo\\\", seg_list[2].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 496,\n      \"text\": \"                KeywordSegment(\\\"bar\\\", seg_list[0].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 498,\n      \"text\": \"                KeywordSegment(\\\"foo\\\", seg_list[2].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 522,\n      \"text\": \"                KeywordSegment(\\\"bar\\\", seg_list[0].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 524,\n      \"text\": \"                KeywordSegment(\\\"foo\\\", seg_list[2].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 525,\n      \"text\": \"                KeywordSegment(\\\"baar\\\", seg_list[3].pos_marker)\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 695,\n      \"text\": \"            KeywordSegment(\\\"bar\\\", seg_list[0].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 696,\n      \"text\": \"            WhitespaceSegment(\\\"  \\\\t \\\", seg_list[1].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/grammar_test.py\",\n      \"line\": 697,\n      \"text\": \"            KeywordSegment(\\\"foo\\\", seg_list[2].pos_marker),\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/markers_test.py\",\n      \"line\": 6,\n      \"text\": \"from sqlfluff.core.parser.markers import PositionMarker\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/markers_test.py\",\n      \"line\": 21,\n      \"text\": \"def test_markers__infer_next_position(raw, start_pos, end_pos):\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/markers_test.py\",\n      \"line\": 26,\n      \"text\": \"def test_markers__setting_position_raw():\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/markers_test.py\",\n      \"line\": 38,\n      \"text\": \"def test_markers__setting_position_working():\",\n      \"is_match\": true\n    },\n    {\n      \"path\": \"test/core/parser/segments_base_test.py\",\n      \"line\": 82,\n      \"text\": \"        base_seg.pos_marker.start_point_marker()\",\n      \"is_match\": true\n    }\n  ],\n  \"count\": 30,\n  \"truncated\": true\n}"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "Let me run the specific test for L060. Let me try running pytest directly.\n\nNow, let me run the specific L060 YAML test case. Let me use a shell command. But I only have run_tests. Let me try running with more specific arguments - but run_tests doesn't accept args in this interface. Let me check what the run_tests tool does.\n\nActually the run_tests returned \"36 deselected in 0.14s\". That's weird - it deselected tests. Maybe the runner uses `-m \"not dbt\"`? No. Actually it seems the test runner ran with something that deselected. Possibly it runs by default some subset.\n\nLet me try to run the test by executing a command. Let me check available tools - I have run_tests only for tests. Let me try running the full test suite for the rules directory.\n\nActually, maybe the run_tests tool picked up a default. Let me just try again - maybe it needs a specific pattern. Since I can't pass args, let me write a quick script... but I don't have a shell tool.\n\nWait, let me re-read the available tools. I have: grep_search, read_file, edit_file, list_dir, run_tests. That's it. run_tests apparently deselects everything by default (36 deselected). Hmm, \"36 deselected\" - that suggests it collected 36 tests and deselected all. Perhaps there's a marker config.\n\nLet me look at how run_tests is configured... I can't. Let me check if there's a standard config that deselects. Actually maybe the runner does `-m \"not dbt\"` and all collected tests are... no.\n\nLet me just try running again to see if it's consistent, maybe it's flaky about which dir.\n\nActually, \"36 deselected\" likely refers to the fact it ran a specific test file. Let me check the .pytest_cache for lastfailed or nodeids.\n\nLet me look at .pytest_cache/v/cache.",
+        "signature": "a58e9aac-a6f9-453a-8e46-e8d38dcc60e3"
+      },
+      {
+        "type": "text",
+        "text": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"list_dir\">\n<｜｜DSML｜｜ parameter name=\"path\" string=\"true\">.pytest_cache/v/cache</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>"
+      }
+    ]
+  }
+]

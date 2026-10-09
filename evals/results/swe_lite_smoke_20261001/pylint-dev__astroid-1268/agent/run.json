@@ -1,0 +1,40 @@
+{
+  "status": "success",
+  "reason": null,
+  "steps": 20,
+  "duration_s": 85.47,
+  "final_answer": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"run_tests\">\n<｜｜DSML｜｜ parameter name=\"path\" string=\"true\">tests/unittest_tmp_probe.py</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+  "tool_calls": 33,
+  "tool_failures": 3,
+  "usage": {
+    "input_tokens": 54052,
+    "output_tokens": 11185,
+    "cache_read_input_tokens": 366080,
+    "cache_creation_input_tokens": 0
+  },
+  "tools": [
+    "read_file",
+    "grep_search",
+    "search_text",
+    "list_dir",
+    "edit_file",
+    "apply_patch",
+    "write_file",
+    "run_tests",
+    "git_diff",
+    "read_artifact"
+  ],
+  "max_steps": 20,
+  "providers": [
+    {
+      "name": "anthropic",
+      "kind": "anthropic",
+      "model": "claude-sonnet-4-6"
+    },
+    {
+      "name": "ollama",
+      "kind": "openai_compatible",
+      "model": "qwen3.8:27b"
+    }
+  ]
+}

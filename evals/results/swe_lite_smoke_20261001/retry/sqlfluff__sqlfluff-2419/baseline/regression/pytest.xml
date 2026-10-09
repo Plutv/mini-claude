@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.120" timestamp="2026-10-02T02:36:46.454973" hostname="Legion"><testcase classname="test.rules.std_L060_test" name="test__rules__std_L060_raised" time="0.082"><failure message="assert &quot;Use 'COALESC...LL' or 'NVL'.&quot; == &quot;Use 'COALESC... of 'IFNULL'.&quot;&#10;  - Use 'COALESCE' instead of 'IFNULL'.&#10;  + Use 'COALESCE' instead of 'IFNULL' or 'NVL'.&#10;  ?                                   +++++++++">def test__rules__std_L060_raised() -&gt; None:
+        """L060 is raised for use of ``IFNULL`` or ``NVL``."""
+        sql = "SELECT\n\tIFNULL(NULL, 100),\n\tNVL(NULL,100);"
+        result = sqlfluff.lint(sql, rules=["L060"])
+    
+        assert len(result) == 2
+&gt;       assert result[0]["description"] == "Use 'COALESCE' instead of 'IFNULL'."
+E       assert "Use 'COALESC...LL' or 'NVL'." == "Use 'COALESC... of 'IFNULL'."
+E         - Use 'COALESCE' instead of 'IFNULL'.
+E         + Use 'COALESCE' instead of 'IFNULL' or 'NVL'.
+E         ?                                   +++++++++
+
+test/rules/std_L060_test.py:11: AssertionError</failure></testcase></testsuite></testsuites>

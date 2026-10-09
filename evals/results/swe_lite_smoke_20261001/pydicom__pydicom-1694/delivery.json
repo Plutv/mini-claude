@@ -1,0 +1,15 @@
+{
+  "public_tests": {
+    "returncode": 1,
+    "duration_s": 2.02,
+    "tests": [
+      "pydicom/tests/test_json.py"
+    ],
+    "passed": 26,
+    "failed": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  "new_tests": null,
+  "passed": false
+}

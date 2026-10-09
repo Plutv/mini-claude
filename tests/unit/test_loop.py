@@ -25,6 +25,7 @@ class _MockProvider:
     ) -> None:
         self._responses = iter(responses)
         self._exc = exc
+        self.calls: list[tuple[list[dict[str, object]], str | None]] = []
 
     async def chat(
         self,
@@ -36,6 +37,7 @@ class _MockProvider:
         step: int = 0,
         system: str | None = None,
     ) -> LlmResponse:
+        self.calls.append((tool_schemas, system))
         if self._exc is not None:
             raise self._exc
         return next(self._responses)
@@ -50,7 +52,11 @@ class _EchoTool(BaseTool):
         "required": ["msg"],
     }
 
+    def __init__(self) -> None:
+        self.calls = 0
+
     async def invoke(self, params: dict[str, object]) -> ToolResult:
+        self.calls += 1
         return ToolResult(content=str(params["msg"]))
 
 
@@ -118,6 +124,47 @@ async def test_max_steps_marks_failed() -> None:
     assert ctx.status == "failed"
     assert ctx.reason == "exceeded_max_steps"
     assert ctx.step == 2
+
+
+async def test_final_step_requests_a_tool_free_honest_summary() -> None:
+    provider = _MockProvider([
+        LlmResponse(stop_reason="tool_use", tool_calls=[_tc()]),
+        LlmResponse(stop_reason="end_turn", text="Changed the file; tests not run."),
+    ])
+    registry = ToolRegistry()
+    registry.register(_EchoTool())
+    loop, _ = _make_loop(provider, registry)
+    ctx = _ctx(max_steps=2)
+
+    await loop.run(ctx)
+
+    assert provider.calls[0][0]
+    assert provider.calls[1][0] == []
+    assert "remaining tool-free response" in (provider.calls[1][1] or "")
+    assert ctx.status == "success"
+    assert ctx.result == "Changed the file; tests not run."
+
+
+async def test_final_step_rejects_unadvertised_tool_calls_without_executing_them() -> None:
+    provider = _MockProvider([
+        LlmResponse(stop_reason="tool_use", tool_calls=[_tc(uid="t1")]),
+        LlmResponse(stop_reason="tool_use", tool_calls=[_tc(uid="t2")]),
+    ])
+    registry = ToolRegistry()
+    tool = _EchoTool()
+    registry.register(tool)
+    loop, _ = _make_loop(provider, registry)
+    ctx = _ctx(max_steps=2)
+
+    await loop.run(ctx)
+
+    assert tool.calls == 1
+    assert ctx.status == "failed"
+    assert ctx.reason == "exceeded_max_steps"
+    last_result = ctx.messages[-1]["content"][0]  # type: ignore[index]
+    assert last_result["tool_use_id"] == "t2"
+    assert last_result["is_error"] is True
+    assert "not executed" in last_result["content"]
 
 
 # 功能：验证"调工具 → end_turn"的两步路径最终标记为 success

@@ -1,0 +1,184 @@
+{
+  "completed_issues": 3,
+  "resolved_issues": 2,
+  "cases": [
+    {
+      "case_id": "pydicom__pydicom-1694",
+      "report": "pydicom__pydicom-1694/report.json",
+      "environment_valid": true,
+      "resolved": true,
+      "target": {
+        "returncode": 0,
+        "duration_s": 1.28,
+        "tests": [
+          "pydicom/tests/test_json.py::TestDataSetToJson::test_suppress_invalid_tags_with_failed_dataelement"
+        ],
+        "passed": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "regression": {
+        "returncode": 0,
+        "duration_s": 1.79,
+        "tests": [
+          "pydicom/tests/test_json.py"
+        ],
+        "passed": 27,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "run_status": "success",
+      "steps": 20,
+      "tool_calls": 25,
+      "duration_s": 58.52,
+      "delivery": {
+        "public_tests": {
+          "returncode": 1,
+          "duration_s": 2.02,
+          "tests": [
+            "pydicom/tests/test_json.py"
+          ],
+          "passed": 26,
+          "failed": 1,
+          "errors": 0,
+          "skipped": 0
+        },
+        "new_tests": null,
+        "passed": false
+      },
+      "posthoc_delivery": null
+    },
+    {
+      "case_id": "pylint-dev__astroid-1268",
+      "report": "pylint-dev__astroid-1268/report.json",
+      "environment_valid": true,
+      "resolved": false,
+      "target": {
+        "returncode": 1,
+        "duration_s": 2.41,
+        "tests": [
+          "tests/unittest_nodes.py::AsStringTest::test_as_string_unknown"
+        ],
+        "passed": 0,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0
+      },
+      "regression": {
+        "returncode": 1,
+        "duration_s": 5.46,
+        "tests": [
+          "tests/unittest_nodes.py"
+        ],
+        "passed": 95,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 1
+      },
+      "run_status": "success",
+      "steps": 20,
+      "tool_calls": 33,
+      "duration_s": 85.47,
+      "delivery": {
+        "public_tests": {
+          "returncode": 0,
+          "duration_s": 4.87,
+          "tests": [
+            "tests/unittest_nodes.py"
+          ],
+          "passed": 95,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 1
+        },
+        "new_tests": {
+          "returncode": 1,
+          "duration_s": 2.01,
+          "tests": [
+            "tests/unittest_tmp_probe.py"
+          ],
+          "passed": 0,
+          "failed": 1,
+          "errors": 0,
+          "skipped": 0
+        },
+        "passed": false
+      },
+      "posthoc_delivery": null
+    },
+    {
+      "case_id": "sqlfluff__sqlfluff-2419",
+      "report": "retry/sqlfluff__sqlfluff-2419/report.json",
+      "environment_valid": true,
+      "resolved": true,
+      "target": {
+        "returncode": 0,
+        "duration_s": 0.92,
+        "tests": [
+          "test/rules/std_L060_test.py::test__rules__std_L060_raised"
+        ],
+        "passed": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "regression": {
+        "returncode": 0,
+        "duration_s": 0.78,
+        "tests": [
+          "test/rules/std_L060_test.py"
+        ],
+        "passed": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "run_status": "success",
+      "steps": 20,
+      "tool_calls": 29,
+      "duration_s": 129.33,
+      "delivery": {
+        "public_tests": {
+          "returncode": 5,
+          "duration_s": 3.06,
+          "tests": [
+            "test/rules/std_test.py",
+            "-k",
+            "L060"
+          ],
+          "passed": 0,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "new_tests": null,
+        "passed": false
+      },
+      "posthoc_delivery": {
+        "note": "Post-hoc check with corrected public test selection; not feedback available to Agent during this attempt.",
+        "result": {
+          "returncode": 0,
+          "duration_s": 3.92,
+          "tests": [
+            "test/rules/yaml_test_cases_test.py",
+            "-k",
+            "L060"
+          ],
+          "passed": 3,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      }
+    }
+  ],
+  "excluded": [
+    {
+      "report": "sqlfluff__sqlfluff-2419/report.json",
+      "reason": "incomplete_or_interrupted"
+    }
+  ],
+  "scope": "convenience sample; local pytest verifier; not official SWE-bench score"
+}

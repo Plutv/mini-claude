@@ -1,0 +1,25 @@
+{
+  "public_tests": {
+    "returncode": 0,
+    "duration_s": 4.87,
+    "tests": [
+      "tests/unittest_nodes.py"
+    ],
+    "passed": 95,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "new_tests": {
+    "returncode": 1,
+    "duration_s": 2.01,
+    "tests": [
+      "tests/unittest_tmp_probe.py"
+    ],
+    "passed": 0,
+    "failed": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  "passed": false
+}

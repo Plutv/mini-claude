@@ -1,0 +1,58 @@
+diff --git a/pydicom/dataset.py b/pydicom/dataset.py
+index e323150..a6f8879 100644
+--- a/pydicom/dataset.py
++++ b/pydicom/dataset.py
+@@ -2492,8 +2492,8 @@ class Dataset:
+         json_dataset = {}
+         for key in self.keys():
+             json_key = '{:08X}'.format(key)
+-            data_element = self[key]
+             try:
++                data_element = self[key]
+                 json_dataset[json_key] = data_element.to_json_dict(
+                     bulk_data_element_handler=bulk_data_element_handler,
+                     bulk_data_threshold=bulk_data_threshold
+diff --git a/pydicom/tests/test_json.py b/pydicom/tests/test_json.py
+index 0b2cbef..1db0cc1 100644
+--- a/pydicom/tests/test_json.py
++++ b/pydicom/tests/test_json.py
+@@ -7,10 +7,10 @@ import pytest
+ 
+ from pydicom import dcmread
+ from pydicom.data import get_testdata_file
+-from pydicom.dataelem import DataElement
++from pydicom.dataelem import DataElement, RawDataElement
+ from pydicom.dataset import Dataset
+ from pydicom.tag import Tag, BaseTag
+-from pydicom.valuerep import PersonName
++from pydicom.valuerep import PersonName, VR as VR_
+ 
+ 
+ class TestPersonName:
+@@ -286,6 +286,26 @@ class TestDataSetToJson:
+ 
+         assert ds_json.get("00100010") is None
+ 
++    def test_suppress_invalid_tags_with_invalid_is(self):
++        """Test that errors raised while accessing a raw element's value are
++        suppressed if suppress_invalid_tags is True.
++        """
++        ds = Dataset()
++        ds.add_new(0x00100010, 'PN', 'Jane^Doe')
++        # Raw element with an invalid IS value (non-integral) that raises
++        # when converted on access
++        ds[0x00200011] = RawDataElement(
++            Tag(0x00200011), VR_.IS, 4, b'2.0 ', 0, True, True
++        )
++
++        with pytest.raises(TypeError):
++            ds.to_json_dict()
++
++        ds_json = ds.to_json_dict(suppress_invalid_tags=True)
++
++        assert ds_json.get("00200011") is None
++        assert ds_json.get("00100010") is not None
++
+ 
+ class TestSequence:
+     def test_nested_sequences(self, disable_value_validation):

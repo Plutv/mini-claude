@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.611" timestamp="2026-10-01T16:56:41.349573" hostname="Legion"><testcase classname="workspace.swe-lite-smoke-20261001._verifiers.pydicom__pydicom-1694.baseline.pydicom.tests.test_json.TestDataSetToJson" name="test_suppress_invalid_tags_with_failed_dataelement" time="0.011"><failure message="TypeError: Could not convert value to integer without loss">self = &lt;pydicom.tests.test_json.TestDataSetToJson object at 0x7faa1076f1f0&gt;
+
+    def test_suppress_invalid_tags_with_failed_dataelement(self):
+        """Test tags that raise exceptions don't if suppress_invalid_tags True.
+        """
+        ds = Dataset()
+        # we have to add a RawDataElement as creating a DataElement would
+        # already raise an exception
+        ds[0x00082128] = RawDataElement(
+            Tag(0x00082128), 'IS', 4, b'5.25', 0, True, True)
+    
+        with pytest.raises(TypeError):
+            ds.to_json_dict()
+    
+&gt;       ds_json = ds.to_json_dict(suppress_invalid_tags=True)
+
+pydicom/tests/test_json.py:301: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+pydicom/dataset.py:2495: in to_json_dict
+    data_element = self[key]
+pydicom/dataset.py:939: in __getitem__
+    self[tag] = DataElement_from_raw(elem, character_set, self)
+pydicom/dataelem.py:859: in DataElement_from_raw
+    value = convert_value(vr, raw, encoding)
+pydicom/values.py:773: in convert_value
+    return converter(byte_string, is_little_endian, num_format)
+pydicom/values.py:348: in convert_IS_string
+    return MultiString(num_string, valtype=pydicom.valuerep.IS)
+pydicom/valuerep.py:1366: in MultiString
+    return valtype(splitup[0])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = &lt;class 'pydicom.valuerep.IS'&gt;, val = '5.25', validation_mode = 1
+
+    def __new__(  # type: ignore[misc]
+            cls: Type["IS"], val: Union[None, str, int, float, Decimal],
+            validation_mode: int = None
+    ) -&gt; Optional[Union[str, "IS"]]:
+        """Create instance if new integer string"""
+        if val is None:
+            return val
+    
+        if validation_mode is None:
+            validation_mode = config.settings.reading_validation_mode
+    
+        if isinstance(val, str):
+            if val.strip() == '':
+                return val
+            validate_value("IS", val, validation_mode)
+    
+        try:
+            newval = super().__new__(cls, val)
+        except ValueError:
+            # accept float strings when no integer loss, e.g. "1.0"
+            newval = super().__new__(cls, float(val))
+    
+        # check if a float or Decimal passed in, then could have lost info,
+        # and will raise error. E.g. IS(Decimal('1')) is ok, but not IS(1.23)
+        #   IS('1.23') will raise ValueError
+        if isinstance(val, (float, Decimal, str)) and newval != float(val):
+&gt;           raise TypeError("Could not convert value to integer without loss")
+E           TypeError: Could not convert value to integer without loss
+
+pydicom/valuerep.py:1284: TypeError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,16 @@
+{
+  "note": "Post-hoc check with corrected public test selection; not feedback available to Agent during this attempt.",
+  "result": {
+    "returncode": 0,
+    "duration_s": 3.92,
+    "tests": [
+      "test/rules/yaml_test_cases_test.py",
+      "-k",
+      "L060"
+    ],
+    "passed": 3,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+}

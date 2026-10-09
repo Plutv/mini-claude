@@ -1,0 +1,5 @@
+{
+  "case_id": "sqlfluff__sqlfluff-2419",
+  "classification": "operator_interruption",
+  "reason": "Operator misread progress and interrupted the first Agent attempt while adjusting verifier storage. Preserve this attempt and rerun from a fresh checkout; do not score it as task failure."
+}

@@ -132,6 +132,7 @@ class AgentLoop:
 
             # [plan] call LLM — API errors terminate the run
             try:
+                final_step = context.step >= context.max_steps
                 system_prompt = (
                     "You are a helpful AI assistant. "
                     "Use the available tools to complete the user's goal. "
@@ -140,9 +141,17 @@ class AgentLoop:
                 )
                 if self._plan_controller is not None:
                     system_prompt += self._plan_controller.prompt()
+                if final_step:
+                    system_prompt += (
+                        " This is your one remaining tool-free response. "
+                        "Summarize only what was actually completed and verified; "
+                        "state explicitly if the goal is incomplete. "
+                        "Do not claim tests passed unless their results were observed. "
+                        "Do not emit tool-call syntax or pretend to call a tool."
+                    )
                 response = await self._provider.chat(
                     messages=context.messages,
-                    tool_schemas=self._registry.tool_schemas(),
+                    tool_schemas=[] if final_step else self._registry.tool_schemas(),
                     bus=self._bus,
                     run_id=context.run_id,
                     step=context.step,
@@ -173,7 +182,16 @@ class AgentLoop:
             context.add_assistant_message(blocks)
 
             # [act] execute each requested tool; errors become tool results so loop continues
-            if response.stop_reason == "tool_use":
+            if response.stop_reason == "tool_use" and final_step:
+                # A provider must not execute a tool that was not offered.
+                # Keep the tool_use/tool_result pair valid for persistence.
+                for tc in response.tool_calls:
+                    context.add_tool_result(
+                        tc.id,
+                        "Error: run step limit reached; tool was not executed.",
+                        is_error=True,
+                    )
+            elif response.stop_reason == "tool_use":
                 invoked = await self._invoke_requested_tools(
                     response.tool_calls, context.run_id
                 )

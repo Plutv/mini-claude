@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.620" timestamp="2026-10-02T02:38:05.418976" hostname="Legion"><testcase classname="tests.unittest_tmp_probe" name="test_probe_str" time="0.005"><failure message="AssertionError: 'Unknown.Unknown()' || 'Unknown'&#10;assert 0">def test_probe_str():
+        from astroid import nodes as n
+    
+        node = n.Unknown()
+&gt;       assert 0, repr(str(node)) + " || " + repr(node.name)
+E       AssertionError: 'Unknown.Unknown()' || 'Unknown'
+E       assert 0
+
+tests/unittest_tmp_probe.py:8: AssertionError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="2.191" timestamp="2026-10-01T16:56:32.224602" hostname="Legion"><testcase classname="tests.unittest_nodes.AsStringTest" name="test_as_string_unknown" time="0.006"><failure message="AttributeError: 'AsStringVisitor' object has no attribute 'visit_unknown'">@staticmethod
+    def test_as_string_unknown() -&gt; None:
+&gt;       assert nodes.Unknown().as_string() == "Unknown.Unknown()"
+
+tests/unittest_nodes.py:311: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+astroid/nodes/node_ng.py:609: in as_string
+    return AsStringVisitor()(self)
+astroid/nodes/as_string.py:56: in __call__
+    return node.accept(self).replace(DOC_NEWLINE, "\n")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Unknown.Unknown l.None at 0x7f4645b07a30&gt;
+visitor = &lt;astroid.nodes.as_string.AsStringVisitor object at 0x7f4645b04be0&gt;
+
+    def accept(self, visitor):
+        """Visit this node using the given visitor."""
+&gt;       func = getattr(visitor, "visit_" + self.__class__.__name__.lower())
+E       AttributeError: 'AsStringVisitor' object has no attribute 'visit_unknown'
+
+astroid/nodes/node_ng.py:220: AttributeError</failure></testcase></testsuite></testsuites>

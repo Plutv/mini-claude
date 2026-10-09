@@ -8,6 +8,7 @@ from kama_claude.core.events.bus import EventBus
 from kama_claude.core.llm.types import ToolCallBlock
 from kama_claude.core.tools.artifacts import ToolArtifactStore
 from kama_claude.core.tools.base import BaseTool, ToolResult
+from kama_claude.core.tools.builtin.read_file import ReadFileTool
 from kama_claude.core.tools.invocation import invoke_tool
 from kama_claude.core.tools.registry import ToolRegistry
 
@@ -149,3 +150,31 @@ async def test_hundred_thousand_character_output_reduces_by_over_ninety_percent(
 
     assert len(result.content) < len(original) * 0.10
     assert (tmp_path / "artifacts" / "large_output-call-100k.txt").stat().st_size == 100_000
+
+
+@pytest.mark.asyncio
+async def test_read_file_can_return_a_bounded_region_without_artifact_round_trips(
+    tmp_path,
+) -> None:
+    lines = [f"line-{number:04d} " + "x" * 45 for number in range(1, 1_401)]
+    lines[1_116] = "self.format = getattr(schema.opts, self.SCHEMA_OPTS_VAR_NAME)"
+    (tmp_path / "fields.py").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    registry = ToolRegistry()
+    registry.register(ReadFileTool(workspace=tmp_path))
+    result = await invoke_tool(
+        registry,
+        ToolCallBlock(
+            id="read-region",
+            name="read_file",
+            input={"path": "fields.py", "start_line": 1_110, "num_lines": 20},
+        ),
+        EventBus(),
+        "run-1",
+        artifact_store=ToolArtifactStore(tmp_path / "artifacts"),
+    )
+
+    assert "schema.opts" in result.content
+    assert "line-0001" not in result.content
+    assert "[large tool result stored as artifact]" not in result.content
+    assert not (tmp_path / "artifacts").exists()

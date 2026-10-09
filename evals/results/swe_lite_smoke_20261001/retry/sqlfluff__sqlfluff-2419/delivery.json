@@ -1,0 +1,17 @@
+{
+  "public_tests": {
+    "returncode": 5,
+    "duration_s": 3.06,
+    "tests": [
+      "test/rules/std_test.py",
+      "-k",
+      "L060"
+    ],
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "new_tests": null,
+  "passed": false
+}

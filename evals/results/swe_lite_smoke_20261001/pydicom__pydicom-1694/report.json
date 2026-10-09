@@ -1,0 +1,132 @@
+{
+  "case_id": "pydicom__pydicom-1694",
+  "base_commit": "f8cf45b6c121e5a4bf4a43f71aba3bc64af3db9c",
+  "started_at": "2026-10-01T08:56:21.069184+00:00",
+  "dataset_sha256": "8312f321838051849d2fa7c6ca071244733a3e90bb517ff6ca8186f722199b5c",
+  "kc_commit": "86bf7fce5b375f2ba9690f6625c5d790e9c91c2b",
+  "harness_sha256": "c0b6986daf1310b2620ffcab18adb71c5ae27d5748b6e23ff106a751f00fed8c",
+  "verifier": "local pytest; official test_patch; relevant test files",
+  "baseline": {
+    "target": {
+      "returncode": 1,
+      "duration_s": 2.22,
+      "tests": [
+        "pydicom/tests/test_json.py::TestDataSetToJson::test_suppress_invalid_tags_with_failed_dataelement"
+      ],
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 1,
+      "duration_s": 2.67,
+      "tests": [
+        "pydicom/tests/test_json.py"
+      ],
+      "passed": 26,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    "passed": false
+  },
+  "gold": {
+    "target": {
+      "returncode": 0,
+      "duration_s": 1.52,
+      "tests": [
+        "pydicom/tests/test_json.py::TestDataSetToJson::test_suppress_invalid_tags_with_failed_dataelement"
+      ],
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 0,
+      "duration_s": 2.14,
+      "tests": [
+        "pydicom/tests/test_json.py"
+      ],
+      "passed": 27,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "passed": true
+  },
+  "environment_valid": true,
+  "agent": {
+    "status": "success",
+    "reason": null,
+    "steps": 20,
+    "duration_s": 58.52,
+    "final_answer": "<｜｜DSML｜｜ calls>\n<｜｜DSML｜｜ invoke name=\"read_file\">\n<｜｜DSML｜｜ parameter name=\"path\" string=\"true\">pydicom/valuerep.py</｜｜DSML｜｜ parameter>\n<｜｜DSML｜｜ parameter name=\"start_line\" string=\"false\">1251</｜｜DSML｜｜ parameter>\n<｜｜DSML｜｜ parameter name=\"num_lines\" string=\"false\">90</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>",
+    "tool_calls": 25,
+    "tool_failures": 7,
+    "usage": {
+      "input_tokens": 26648,
+      "output_tokens": 4336,
+      "cache_read_input_tokens": 179328,
+      "cache_creation_input_tokens": 0
+    },
+    "tools": [
+      "read_file",
+      "grep_search",
+      "search_text",
+      "list_dir",
+      "edit_file",
+      "apply_patch",
+      "write_file",
+      "run_tests",
+      "git_diff",
+      "read_artifact"
+    ],
+    "max_steps": 20,
+    "providers": [
+      {
+        "name": "anthropic",
+        "kind": "anthropic",
+        "model": "claude-sonnet-4-6"
+      },
+      {
+        "name": "ollama",
+        "kind": "openai_compatible",
+        "model": "qwen3.8:27b"
+      }
+    ]
+  },
+  "patch_sha256": "eba93fe8ee3d04f7bbefa2ddf988f7060f3eeb15ae6b8aaa4cd902e2051a6898",
+  "candidate": {
+    "target": {
+      "returncode": 0,
+      "duration_s": 1.28,
+      "tests": [
+        "pydicom/tests/test_json.py::TestDataSetToJson::test_suppress_invalid_tags_with_failed_dataelement"
+      ],
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "regression": {
+      "returncode": 0,
+      "duration_s": 1.79,
+      "tests": [
+        "pydicom/tests/test_json.py"
+      ],
+      "passed": 27,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "passed": true
+  },
+  "resolved": true,
+  "finished_at": "2026-10-01T08:58:27.565829+00:00",
+  "previous_candidate": {
+    "passed": false,
+    "patch_apply_error": "patch failed: error: patch failed: pydicom/tests/test_json.py:7\nerror: pydicom/tests/test_json.py: patch does not apply\n"
+  }
+}
